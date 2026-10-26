@@ -1,0 +1,154 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  backend:
+    name: Backend (Python ${{ matrix.python-version }}, PostgreSQL)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest supported and newest targeted Python versions.
+        python-version: ["3.10", "3.13"]
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: finlume_ci
+          POSTGRES_USER: finlume_ci
+          POSTGRES_PASSWORD: finlume_ci_only  # ephemeral CI container, not a secret
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U finlume_ci -d finlume_ci"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      # Tests and the test-settings checks below run on this PostgreSQL service.
+      # The guard makes pytest fail outright if they would run on anything else.
+      FINLUME_TEST_DB_ENGINE: postgresql
+      FINLUME_REQUIRE_POSTGRES_TESTS: "1"
+      POSTGRES_DB: finlume_ci
+      POSTGRES_USER: finlume_ci
+      POSTGRES_PASSWORD: finlume_ci_only
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: "5432"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: backend/requirements/dev.txt
+      - name: Install locked dependencies
+        run: python -m pip install --require-hashes -r requirements/dev.txt
+      - name: Formatting
+        run: python -m ruff format --check .
+      - name: Lint
+        run: python -m ruff check .
+      - name: Type check
+        run: python -m mypy .
+      - name: Django system checks
+        run: python manage.py check --fail-level WARNING
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+      - name: Migrations are up to date
+        run: python manage.py makemigrations --check --dry-run
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+      - name: Tests (PostgreSQL)
+        run: python -m pytest --cov --cov-report=term-missing
+
+  dependency-audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install locked tooling
+        run: python -m pip install --require-hashes -r requirements/dev.txt
+      - name: Audit runtime dependencies
+        run: python -m pip_audit -r requirements/base.txt
+      - name: Audit development dependencies
+        run: python -m pip_audit -r requirements/dev.txt
+
+  web:
+    name: Web client (typecheck, lint, test, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck, lint, test and build
+        run: npm run check
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+
+  mobile:
+    name: Mobile client (typecheck, Expo doctor)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Expo dependency checks
+        run: npx --yes expo-doctor
+      # npm audit is not gated here: Expo's CLI tooling carries upstream
+      # advisories with no patched release yet (see apps/mobile/README.md).
+
+  lockfile:
+    name: Lock files match pyproject.toml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Install uv from the dev lock
+        run: python -m pip install --require-hashes -r requirements/dev.txt
+      - name: Re-compile and compare
+        # Compiling over a copy of each lock keeps its pins as preferences, so
+        # this fails only when pyproject.toml and the locks disagree, not when
+        # upstream publishes a new release.
+        run: |
+          cp requirements/base.txt /tmp/base.txt
+          cp requirements/dev.txt /tmp/dev.txt
+          python -m uv pip compile pyproject.toml --universal --python-version 3.10 \
+            --generate-hashes -o /tmp/base.txt -q
+          python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.10 \
+            --generate-hashes -o /tmp/dev.txt -q
+          diff <(grep -v '^#' requirements/base.txt) <(grep -v '^#' /tmp/base.txt)
+          diff <(grep -v '^#' requirements/dev.txt) <(grep -v '^#' /tmp/dev.txt)

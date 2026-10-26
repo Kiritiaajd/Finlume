@@ -1,0 +1,80 @@
+# ---------------------------------------------------------------------------
+# Secrets and machine-specific configuration
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+
+# ---------------------------------------------------------------------------
+# Local runtime state: databases, private uploads, generated output
+# backend/var/ holds the local SQLite database, private document storage
+# and collected static files. Real financial data must never be committed.
+# ---------------------------------------------------------------------------
+backend/var/
+*.sqlite3
+*.sqlite3-journal
+*.db
+*.dump
+*.sql.gz
+media/
+uploads/
+private/
+reports/generated/
+exports/
+
+# ---------------------------------------------------------------------------
+# JavaScript / frontend (apps/web, apps/mobile when introduced)
+# ---------------------------------------------------------------------------
+node_modules/
+.expo/
+.vite/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Editors and operating systems
+# ---------------------------------------------------------------------------
+.idea/
+*.swp
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+# Shared VS Code settings may be committed deliberately; personal ones not.
+.vscode/*
+!.vscode/extensions.json
+
+# Logs
+*.log
+logs/
+# Development launcher state (scripts/dev.ps1, scripts/dev.sh): logs, PID files
+.dev/

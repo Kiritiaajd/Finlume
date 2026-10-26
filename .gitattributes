@@ -1,0 +1,3 @@
+# Shell scripts must keep LF line endings even when checked out on Windows;
+# with CRLF, Linux reports "bad interpreter" or fails on "\r" in commands.
+*.sh text eol=lf

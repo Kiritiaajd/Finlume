@@ -1,0 +1,117 @@
+# Finlume backend: Django + DRF modular monolith.
+#
+# Declared dependencies live here (single source of truth). Pinned, hashed
+# lock files are generated from this file into requirements/ — see
+# docs/development/LOCAL_SETUP.md. Never edit the lock files by hand.
+
+[project]
+name = "finlume-backend"
+version = "0.1.0"
+description = "Finlume backend API and financial calculation engine."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "Django>=5.2,<5.3",               # 5.2 LTS: security support until April 2028
+    "djangorestframework>=3.18.2,<3.19",  # 3.18.2 fixes request-parsing CVEs
+    "psycopg[binary]>=3.2,<4",        # PostgreSQL driver (psycopg 3)
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-django>=4.9",
+    "pytest-cov>=6.0",
+    "ruff>=0.12",
+    "mypy>=1.15",
+    "django-stubs[compatible-mypy]>=5.2,<5.3",
+    # 3.18 stubs require Django 6 stubs; 3.16 stubs are the newest that pair
+    # with Django 5.2 LTS. Type-checking only — the runtime is DRF 3.18.
+    "djangorestframework-stubs[compatible-mypy]>=3.16,<3.17",
+    "pip-audit>=2.9",
+    "uv>=0.13",  # regenerates the lock files in requirements/
+]
+
+# The backend is a deployable Django project, not a distributable library.
+# Declaring no packages lets lock tooling read the metadata above without
+# trying to package the source tree.
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = []
+
+# --------------------------------------------------------------------------
+# Ruff: formatting and linting
+# --------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["*/migrations/*"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "B",        # bugbear
+    "UP",       # pyupgrade
+    "S",        # bandit-derived security checks
+    "DJ",       # django
+    "DTZ",      # timezone-naive datetimes
+    "RUF",
+    "SIM",
+    "C4",
+    "PT",       # pytest style
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is the point of a test
+"apps/*/models.py" = ["RUF012"]  # Django Meta options are conventionally lists
+
+[tool.ruff.lint.isort]
+known-first-party = ["config", "apps", "domain", "infrastructure"]
+
+# --------------------------------------------------------------------------
+# Mypy: static type checking
+# --------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.10"
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+strict = true
+exclude = ["/migrations/"]
+
+[[tool.mypy.overrides]]
+module = ["tests.*"]
+# Tests lean on untyped pytest fixtures; production code stays fully strict.
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
+warn_return_any = false
+disallow_any_generics = false  # DRF generics are not subscriptable at runtime
+
+[tool.django-stubs]
+django_settings_module = "config.settings.test"
+
+# --------------------------------------------------------------------------
+# Pytest
+# --------------------------------------------------------------------------
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["--strict-markers", "--strict-config", "-ra"]
+markers = [
+    "postgres: requires a PostgreSQL database (run in CI and with Docker locally)",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+branch = true
+source = ["config", "apps", "domain", "infrastructure"]
+omit = ["*/migrations/*", "config/asgi.py", "config/wsgi.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = true

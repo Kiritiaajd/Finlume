@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import itertools
 import os
 from datetime import date
@@ -96,6 +97,23 @@ def make_workspace(make_user, make_organization):
             workspace=workspace, user=owner, role=WorkspaceRole.OWNER
         )
         return workspace
+
+    return build
+
+
+@pytest.fixture
+def add_to_workspace(make_user):
+    """Make ``user`` (or a new user) a member of the workspace's organization and the workspace."""
+
+    def build(workspace: Workspace, role: WorkspaceRole, user: User | None = None) -> User:
+        user = user or make_user()
+        OrganizationMembership.objects.get_or_create(
+            organization_id=workspace.organization_id,
+            user=user,
+            defaults={"role": OrganizationRole.MEMBER},
+        )
+        WorkspaceMembership.objects.create(workspace=workspace, user=user, role=role)
+        return user
 
     return build
 

@@ -83,7 +83,7 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - Role CHECK constraints on both membership tables.
   - The abstract `PublicModel`, which holds the standard columns.
 - **Data migration** `workspaces.0002`: it gives every existing user a personal workspace and owner membership. It runs in batches and is idempotent.
-- **`services.access`:** `require_workspace_role`, `require_organization_role` and `workspaces_for`. Each takes one indexed query. A non-member gets `404` and a role that is too low gets `403`. Organization admins get no implicit workspace access.
+- **`services.access`:** `require_workspace_role` and `require_organization_role`. Each takes one indexed query. A non-member gets `404` and a role that is too low gets `403`. Organization admins get no implicit workspace access.
 - **`services.errors.ConflictError`**, returned by the API as `409 conflict` with its safe message.
 - **Read-only admin** for the four tenancy models (`apps.core.admin.ReadOnlyModelAdmin`). Users can no longer be deleted from the admin (ADR-0008 §7).
 

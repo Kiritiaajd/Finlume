@@ -48,7 +48,7 @@ flowchart LR
     subgraph shared["Shared foundation"]
         core["core: health, errors, request IDs"]
         accounts["accounts: users"]
-        orgs["organizations: organizations, members (planned)"]
+        orgs["organizations: organizations, members"]
         workspaces["workspaces: workspaces, members, access scoping (planned)"]
         audit["audit: audit events (planned)"]
         documents["documents: private source files (planned)"]
@@ -109,7 +109,7 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 |-----|--------|------|----------------|
 | `core` | **Implemented** | Shared Django integration: the abstract `PublicModel`, `ReadOnlyModelAdmin`, request IDs and the health endpoint. The error envelope and pagination moved to `backend/api/` | — |
 | `accounts` | **Implemented** | Custom `User` model (`public_id`, case-insensitive unique email). It had to exist before the first migration. | — |
-| `organizations` | **Implemented** (models; API in 1d) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
+| `organizations` | **Implemented** (models and API) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
 | `workspaces` | **Implemented** (models, backfill, API and the `recover_workspace_owner` command) | `Workspace` (personal or organization; the tenancy boundary), `WorkspaceMembership` (owner, editor, viewer) and `api/scoping.py`, the one helper every tenant view inherits | MVP step 1a |
 | `financial_records` | Planned (Phase 1) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact` | Manual statement entry |
 | `ingestion` | Conditional (Phase 1) | Only tables for import batches and row errors, if needed. The import workflow itself lives in `services/statement_analysis` and `services/documents` (§3.3) | CSV upload, if import batches need persisting |
@@ -162,7 +162,7 @@ responsibility with a clear boundary, not a separate process.
 |---|---|---|---|
 | `access` | The shared authorization resolver used by every tenant endpoint and job | `workspaces`, `organizations` | Scaffolded (step 1a) |
 | `accounts` | Registration and personal-workspace provisioning | `accounts`, `workspaces`, `audit` | Scaffolded (step 1b) |
-| `organizations` | Organization lifecycle and membership | `organizations`, `workspaces`, `audit` | Scaffolded (step 1d) |
+| `organizations` | Organization lifecycle and membership | `organizations`, `workspaces`, `audit` | Implemented (step 1d) |
 | `workspaces` | Workspace lifecycle, roles and ownership recovery | `workspaces`, `audit` | Scaffolded (step 1c) |
 | `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | MVP steps 2–5 |
 | `documents` | Document intake (private storage, fingerprinting) and, in Phase 2, extraction with human review | `documents` | MVP step 4 (intake); Phase 2 (extraction) |

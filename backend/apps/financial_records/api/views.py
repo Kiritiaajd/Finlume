@@ -17,15 +17,24 @@ from rest_framework.views import APIView
 
 from api.pagination import paginated_response
 from api.users import request_user
-from apps.financial_records.models import FinancialStatement, ReportingEntity
+from apps.financial_records.models import FinancialStatement, ReportingEntity, StatementStatus
 from apps.workspaces.api.scoping import WorkspaceScopedView
 from domain.financial_statements import LineItem
-from services.statement_analysis import create_entity, create_statement, update_draft
+from services.statement_analysis import (
+    create_entity,
+    create_statement,
+    restate_statement,
+    update_draft,
+    validate_statement,
+)
 
 from .serializers import (
     EntityInputSerializer,
+    RestatementInputSerializer,
     StatementInputSerializer,
     entity_data,
+    fact_data,
+    issue_data,
     line_item_data,
     statement_data,
     taxonomy_data,
@@ -81,17 +90,17 @@ class EntityStatementListView(WorkspaceScopedView):
 
 
 class StatementDetailView(WorkspaceScopedView):
-    """One statement version with its raw rows; edit it while it is a draft."""
+    """One statement version with its raw rows (and facts, once validated); edit a draft."""
 
     def get(
         self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
     ) -> Response:
-        return Response(_statement_with_rows(self._statement(statement_id)))
+        return Response(_statement_with_rows(_statement(self, statement_id)))
 
     def patch(
         self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
     ) -> Response:
-        statement = self._statement(statement_id)
+        statement = _statement(self, statement_id)
         serializer = StatementInputSerializer(
             data=request.data, partial=True, context={"statement": statement}
         )
@@ -104,12 +113,43 @@ class StatementDetailView(WorkspaceScopedView):
             rows=changes.pop("line_items", None),
             **changes,
         )
-        return Response(_statement_with_rows(self._statement(updated.public_id)))
+        return Response(_statement_with_rows(_statement(self, updated.public_id)))
 
-    def _statement(self, statement_id: UUID) -> FinancialStatement:
-        return get_object_or_404(
-            self.scoped(FinancialStatement.objects.all()).select_related("entity", "supersedes"),
-            public_id=statement_id,
+
+class StatementValidateView(WorkspaceScopedView):
+    """Draft → validated: saves the facts and returns consistency warnings, never blocking."""
+
+    def post(
+        self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
+    ) -> Response:
+        outcome = validate_statement(
+            actor=request_user(request),
+            workspace=self.workspace,
+            statement=_statement(self, statement_id),
+        )
+        data = _statement_with_rows(_statement(self, outcome.statement.public_id))
+        return Response({**data, "issues": [issue_data(issue) for issue in outcome.issues]})
+
+
+class StatementRestatementView(WorkspaceScopedView):
+    """Start the next version of a validated statement, as a draft."""
+
+    def post(
+        self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
+    ) -> Response:
+        statement = _statement(self, statement_id)
+        serializer = RestatementInputSerializer(data=request.data, context={"statement": statement})
+        serializer.is_valid(raise_exception=True)
+        draft = restate_statement(
+            actor=request_user(request),
+            workspace=self.workspace,
+            statement=statement,
+            reason=serializer.validated_data["reason"],
+            rows=serializer.validated_data.get("line_items"),
+        )
+        return Response(
+            _statement_with_rows(_statement(self, draft.public_id)),
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -124,6 +164,23 @@ class LineItemTaxonomyView(APIView):
         return Response({"count": len(items), "next": None, "previous": None, "results": items})
 
 
+def _statement(view: WorkspaceScopedView, statement_id: UUID) -> FinancialStatement:
+    return get_object_or_404(
+        view.scoped(FinancialStatement.objects.all()).select_related("entity", "supersedes"),
+        public_id=statement_id,
+    )
+
+
 def _statement_with_rows(statement: FinancialStatement) -> dict[str, Any]:
+    """The statement, its raw rows and, unless it is a draft, its facts in base units."""
     rows = statement.line_items.order_by("row_number")
-    return {**statement_data(statement), "line_items": [line_item_data(row) for row in rows]}
+    facts = (
+        []
+        if statement.status == StatementStatus.DRAFT
+        else statement.facts.select_related("derived_from").order_by("derived_from__row_number")
+    )
+    return {
+        **statement_data(statement),
+        "line_items": [line_item_data(row) for row in rows],
+        "facts": [fact_data(fact) for fact in facts],
+    }

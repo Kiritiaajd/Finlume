@@ -27,12 +27,14 @@ from apps.financial_records.models import (
     SCALES,
     STATEMENT_TYPES,
     EntityType,
+    FinancialFact,
     FinancialStatement,
     ReportingEntity,
     StatementLineItem,
 )
 from domain.financial_statements import LineItem, Scale
 from domain.financial_statements.line_items import NON_NEGATIVE_ITEMS, NON_POSITIVE_ITEMS
+from domain.validation import Issue
 
 MAX_ABS = Decimal("1E+24")  # numeric(30,6)
 MAX_DECIMAL_PLACES = 6
@@ -178,6 +180,25 @@ def _row_errors(
     return errors
 
 
+class RestatementInputSerializer(serializers.Serializer[Any]):
+    """Restate ``context["statement"]``; without ``line_items`` its rows are copied."""
+
+    reason = serializers.CharField(max_length=2000)  # trimmed; blank is refused
+    line_items = serializers.ListField(
+        child=LineItemInputSerializer(), max_length=MAX_ROWS, required=False
+    )
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        statement: FinancialStatement = self.context["statement"]
+        rows = attrs.get("line_items")
+        if rows is not None:
+            scale = Scale[statement.reported_scale.upper()]
+            errors = _row_errors(rows, statement.statement_type, scale)
+            if errors:
+                raise serializers.ValidationError({"line_items": errors})
+        return attrs
+
+
 class EntityInputSerializer(serializers.Serializer[Any]):
     name = serializers.CharField(max_length=200)
     entity_type = serializers.ChoiceField(choices=EntityType.choices)
@@ -232,6 +253,25 @@ def line_item_data(row: StatementLineItem) -> dict[str, Any]:
         "amount": None if row.reported_amount is None else format(row.reported_amount, "f"),
         "raw_value": row.raw_value,
         "source_reference": row.source_reference or None,
+    }
+
+
+def fact_data(fact: FinancialFact) -> dict[str, Any]:
+    """A normalised figure in base units. Expects ``derived_from`` already loaded."""
+    return {
+        "line_item": fact.line_item,
+        "value": format(fact.value, "f"),
+        "row_id": fact.derived_from.public_id,
+        "review_status": fact.review_status,
+    }
+
+
+def issue_data(issue: Issue) -> dict[str, Any]:
+    return {
+        "code": issue.code.value,
+        "severity": issue.severity.value,
+        "message": issue.message,
+        "line_items": [item.value for item in issue.line_items],
     }
 
 

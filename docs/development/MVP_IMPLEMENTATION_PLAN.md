@@ -75,7 +75,7 @@ Delivered as two PRs:
 Delivered as two PRs:
 
 - **3a** (*implemented 2026-10-27*): entities, draft statements with their rows (create, list, read, edit while draft), the input validation below, and the taxonomy endpoint with the A4 definitions.
-- **3b:** `validate` (draft → validated, facts saved with `build_facts`, version *n* superseded first) and `restatements`, with the validation issues returned.
+- **3b** (*implemented 2026-10-27*): `validate` (draft → validated, facts saved with `build_facts`, version *n* superseded first) and `restatements`, with the validation issues returned. Step 3 is complete.
 
 - **Endpoints:**
   All under `/workspaces/{ws}/` ([API conventions](../api/API_CONVENTIONS.md#resources-and-urls)):

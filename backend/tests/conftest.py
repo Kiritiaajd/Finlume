@@ -9,8 +9,6 @@ from decimal import Decimal
 import pytest
 from django.conf import settings
 from django.core.cache import cache
-from django.db import connection
-from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -53,34 +51,6 @@ def api_client() -> APIClient:
 def _isolated_cache():
     """Throttle counters live in the cache; start every test from zero."""
     cache.clear()
-
-
-# Per-request plumbing every authenticated call pays, whatever the endpoint:
-# transaction savepoints (ATOMIC_REQUESTS), the session read and its sliding-
-# expiry write, and loading the signed-in user.
-_PLUMBING_SQL = (
-    "SAVEPOINT",
-    "RELEASE SAVEPOINT",
-    'SELECT "django_session"',
-    'UPDATE "django_session"',
-    'SELECT "accounts_user"',
-)
-
-
-@pytest.fixture
-def assert_app_queries():
-    """Assert how many queries an endpoint's own code runs, ignoring _PLUMBING_SQL."""
-
-    @contextlib.contextmanager
-    def check(expected: int):
-        with CaptureQueriesContext(connection) as context:
-            yield
-        app_sql = [
-            q["sql"] for q in context.captured_queries if not q["sql"].startswith(_PLUMBING_SQL)
-        ]
-        assert len(app_sql) == expected, "\n\n".join(app_sql)
-
-    return check
 
 
 # --- Tenancy builders (fictional data only) ----------------------------------

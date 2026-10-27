@@ -2,8 +2,8 @@
 
 The Finlume web and mobile clients consume the same versioned REST API, served by Django REST Framework.
 
-> **Implementation status:** the implemented endpoints are health,
-> authentication and workspaces ([below](#implemented-endpoints)). Every other resource in
+> **Implementation status:** the implemented endpoints are health and
+> authentication ([below](#implemented-endpoints)). Every other resource in
 > this document is designed but not yet built. The global behaviours (versioning, error envelope,
 > request IDs, pagination, throttling, authentication defaults) are already
 > configured in `backend/config/settings/base.py`.
@@ -144,28 +144,6 @@ An OpenAPI 3 schema generated with drf-spectacular is planned for Phase 1, and t
 | `GET me/` | Signed in | `200`, the current user | |
 
 Current user: `{"id": "<uuid>", "email": "…", "personal_workspace_id": "<uuid>"}`.
-
-### Workspaces ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md))
-
-All need a signed-in user. Under `workspaces/{id}/`, a non-member gets `404` and a member
-without the required role gets `403`.
-
-| Endpoint | Minimum role | Success | Notes |
-|---|---|---|---|
-| `GET workspaces/` | — | `200`, paginated | Only the caller's workspaces, with `my_role` |
-| `POST workspaces/` `{"organization_id", "name"}` | Member of that organization | `201`; creator is owner | Personal workspaces are created only at registration |
-| `GET workspaces/{id}/` | viewer | `200` | |
-| `PATCH workspaces/{id}/` `{"name"}` | owner | `200` | |
-| `GET workspaces/{id}/members/` | viewer | `200`, paginated | |
-| `POST workspaces/{id}/members/` `{"user_id", "role"}` | owner | `201` | The user must be an active member of the organization; personal workspaces take no members (`409`) |
-| `PATCH workspaces/{id}/members/{user_id}/` `{"role"}` | owner | `200` | Demoting the last owner → `409` |
-| `DELETE workspaces/{id}/members/{user_id}/` | viewer for yourself (leave), owner for others | `204` | Removing the last owner → `409` |
-
-Workspace: `{"id", "name", "kind": "personal" | "organization", "organization_id", "my_role", "created_at"}`.
-Member: `{"user_id", "email", "role", "joined_at"}`.
-
-Ownership recovery, for workspaces whose owners are all deactivated, has no endpoint by
-design. It is the operator command `manage.py recover_workspace_owner`.
 
 ### `GET /api/v1/health/`
 

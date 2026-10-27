@@ -132,6 +132,16 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - Statements in different currencies, or no validated statement for the period, are refused with `ConflictError` (`409 conflict`), naming the currency codes but no amounts.
   - `build_facts(statement, review_status=…)` turns a statement's mapped raw rows into unsaved facts in base units, scaled exactly with `domain.financial_statements.normalize_amount`. Unmapped rows and blank cells give no fact, signs are never flipped, a code from another statement type is refused, and so is a value too large for `numeric(30,6)` once scaled (FA-15).
 
+- **Manual statement entry, drafts (MVP step 3a):** the first endpoints for financial data, all under `/api/v1/workspaces/{ws}/` and behind the one-query workspace check. Viewers read; editors write.
+  - `GET/POST entities/` and `GET entities/{id}/`: reporting entities, with a unique name per workspace (`409` on a duplicate).
+  - `GET/POST entities/{id}/statements/`: every version of an entity's statements, and a new **draft** (version 1) with its raw rows and a manual-entry source document.
+  - `GET/PATCH statements/{id}/`: one statement with its rows. Only a draft can be edited; sending `line_items` replaces all rows; a restatement draft keeps its statement type and period. A statement already existing for the period is a `409`.
+  - Input validation answers field-level `400`s: amounts only as decimal strings (JSON numbers refused), at most 6 decimal places, below 10²⁴ as entered and once scaled (FA-15), a line-item code only on its own statement type and once per statement, and at most 500 rows. The exact text sent is kept as `raw_value`.
+  - An entity or statement ID from another workspace answers `404`.
+  - `GET /api/v1/line-items/`: the taxonomy with each code's statement type, sign convention and definition, as help text for entry forms.
+  - Events `entity.created`, `statement.created` and `statement.updated` are audited, without amounts.
+- **Line-item definitions (decision A4, FA-10 approved):** `LineItem.definition` for all 21 codes. Debt excludes lease liabilities; equity and net income both include non-controlling interests; operating income is as reported. Formulas and `ENGINE_VERSION` are unchanged.
+
 ### Changed
 
 - **Unauthenticated API requests now get `401`** with `WWW-Authenticate: Session`, instead of `403`. Signed-in users without permission, and CSRF failures, still get `403`.

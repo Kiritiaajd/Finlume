@@ -72,11 +72,16 @@ Delivered as two PRs:
 
 **Goal:** enter all three statements by hand, see validation warnings, and confirm (FR-011, FR-015, FR-020–FR-023).
 
+Delivered as two PRs:
+
+- **3a** (*implemented 2026-10-27*): entities, draft statements with their rows (create, list, read, edit while draft), the input validation below, and the taxonomy endpoint with the A4 definitions.
+- **3b:** `validate` (draft → validated, facts saved with `build_facts`, version *n* superseded first) and `restatements`, with the validation issues returned.
+
 - **Endpoints:**
   All under `/workspaces/{ws}/` ([API conventions](../api/API_CONVENTIONS.md#resources-and-urls)):
-  - `GET/POST entities/`
+  - `GET/POST entities/` and `GET entities/{id}/`
   - `GET/POST entities/{id}/statements/` (draft with line items)
-  - `PATCH statements/{id}/` while in draft
+  - `GET statements/{id}/`, and `PATCH statements/{id}/` while in draft
   - `POST statements/{id}/validate/`: draft → validated; creates facts
   - `POST statements/{id}/restatements/`: new version plus reason
 - **Input validation:**

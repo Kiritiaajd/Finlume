@@ -111,7 +111,7 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 | `accounts` | **Implemented** | Custom `User` model (`public_id`, case-insensitive unique email). It had to exist before the first migration. | — |
 | `organizations` | **Implemented** (models and API) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
 | `workspaces` | **Implemented** (models, backfill, API and the `recover_workspace_owner` command) | `Workspace` (personal or organization; the tenancy boundary), `WorkspaceMembership` (owner, editor, viewer) and `api/scoping.py`, the one helper every tenant view inherits | MVP step 1a |
-| `financial_records` | **Implemented** (models and read-only admin; API in step 3) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact`, and the PostgreSQL composite keys that keep them in one workspace | MVP step 2a |
+| `financial_records` | **Implemented** (models, read-only admin, and the entity, draft statement and taxonomy API of step 3a; validation and restatements in 3b) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact`, and the PostgreSQL composite keys that keep them in one workspace | MVP step 2a |
 | `ingestion` | Conditional (Phase 1) | Only tables for import batches and row errors, if needed. The import workflow itself lives in `services/statement_analysis` and `services/documents` (§3.3) | CSV upload, if import batches need persisting |
 | `documents` | **Implemented** (minimal: `manual_entry` only) | `SourceDocument` metadata. The file columns (SHA-256, private storage key) arrive with the first stored upload, the CSV file kept for provenance (step 4) | MVP step 2a |
 | `analysis` | Planned (Phase 1) | `AnalysisRun` (immutable), `MetricResult`, `AnalysisIssue` | Persisting an engine run |
@@ -164,7 +164,7 @@ responsibility with a clear boundary, not a separate process.
 | `accounts` | Registration and personal-workspace provisioning | `accounts`, `workspaces`, `audit` | Scaffolded (step 1b) |
 | `organizations` | Organization lifecycle and membership | `organizations`, `workspaces`, `audit` | Implemented (step 1d) |
 | `workspaces` | Workspace lifecycle, roles and ownership recovery | `workspaces`, `audit` | Scaffolded (step 1c) |
-| `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | Started in step 2b (`assemble_analysis_input`, `build_facts`); the rest in MVP steps 3–5 |
+| `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | Started: assembly and normalisation (step 2b), entities and draft statements (step 3a); the rest in MVP steps 3b–5 |
 | `documents` | Document intake (private storage, fingerprinting) and, in Phase 2, extraction with human review | `documents` | MVP step 4 (intake); Phase 2 (extraction) |
 | `stock_research` | Company research, market data, valuation | `investments`, `market_data`, `infrastructure/providers` | Phase 5 |
 | `portfolio_analysis` | Holdings, returns, risk and allocation | `investments` | Phase 5 |

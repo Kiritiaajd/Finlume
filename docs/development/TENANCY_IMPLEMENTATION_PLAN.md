@@ -185,7 +185,7 @@ def workspaces_for(user: User) -> QuerySet[Workspace]:
 ```
 
 `require_organization_role` follows the same pattern for organization endpoints. The existing
-error handler ([`apps/core/exceptions.py`](../../backend/apps/core/exceptions.py)) already maps
+error handler ([`api/exceptions.py`](../../backend/api/exceptions.py)) already maps
 Django's `Http404` and `PermissionDenied` to the standard envelope, so **no new error-mapping
 code** is needed for them. The only addition is `services/errors.py` with a `ConflictError`
 (for I3 and I4), mapped once to `409 conflict`.
@@ -291,13 +291,20 @@ backend/
 │       └── recovery.py          # operator-only ownership recovery
 │   # later, with their first feature: statement_analysis/, documents/,
 │   #   stock_research/, portfolio_analysis/
-├── apps/
-│   ├── core/models.py           # PublicModel (abstract)
-│   ├── accounts/                # + backends.py, authentication.py, throttles.py,
-│   │                            #   serializers.py, views.py, urls.py
-│   ├── organizations/           # apps, models, admin, serializers, views, urls, migrations/
-│   ├── workspaces/              # same, plus scoping.py (WorkspaceScopedMixin)
-│   └── audit/                   # apps, models (AuditEvent.record), admin, migrations/
+├── api/                         # shared DRF plumbing for every endpoint
+│   ├── exceptions.py            # error envelope; maps ConflictError → 409
+│   ├── pagination.py            # StandardPagination
+│   └── permissions.py           # shared DRF permission classes, when one is needed
+├── apps/                        # Django integration: models, migrations, admin, endpoints
+│   ├── core/                    # models.py (PublicModel), admin.py (ReadOnlyModelAdmin),
+│   │                            #   request IDs, health
+│   ├── accounts/                # models, admin, backends.py
+│   │   └── api/                 # authentication, throttles, serializers, views, urls
+│   ├── organizations/           # models, admin, migrations/
+│   │   └── api/                 # serializers, views, urls
+│   ├── workspaces/              # models, admin, migrations/ (incl. personal-workspace backfill)
+│   │   └── api/                 # scoping.py (WorkspaceScopedMixin), serializers, views, urls
+│   └── audit/                   # models (AuditEvent.record), admin, migrations/
 ├── config/
 │   ├── settings/base.py         # INSTALLED_APPS: + organizations, workspaces, audit
 │   └── api_v1.py                # includes the accounts, organizations and workspaces urls
@@ -310,8 +317,9 @@ backend/
     └── test_architecture.py     # domain imports no `services`; services import no DRF
 ```
 
-Each Django app keeps Django's standard flat files. A sub-package is created only when a file
-outgrows one area of responsibility. The `recover_workspace_owner` management command is not
+Layout rule: **core logic in `services/<capability>/`, every endpoint in
+`apps/<app>/api/`, and shared DRF plumbing in `backend/api/`**. Models, migrations and admin
+stay at the app's top level. The `recover_workspace_owner` management command is not
 scaffolded, because an empty command module would break `manage.py`. It lands with its code
 in 1c.
 
@@ -348,7 +356,7 @@ code, to keep the work small.
 | PR | Scope | Acceptance | Target size |
 |---|---|---|---|
 | **0. Decide** | ADR-0008 *Organizations and workspace tenancy* (this design); update DATA_MODEL §2–4, DOMAIN_BOUNDARIES §2–3 (`organizations` moves from Future to Phase 1, `workspaces` becomes its own app per A7) and PRODUCT_SCOPE FR-004 ("business workspace" becomes "organization workspace") | Reviewed and accepted; records the §10 decisions | docs only |
-| **1a. Tenancy models** | `PublicModel`; `Organization`, `OrganizationMembership`, `Workspace`, `WorkspaceMembership` and their migrations; a data migration giving every existing user a personal workspace and owner membership; `services/access/resolvers.py`, `services/errors.py`; read-only admin for the four models; user deletion disabled in the admin | Constraint tests (one owner kind, unique personal workspace, unique memberships, CHECKs) pass on PostgreSQL; the data migration is tested forwards, including re-running it on users who already have a workspace; `require_workspace_role` returns 404 for non-members and 403 for a role that is too low, using one query; the admin cannot delete or edit tenancy rows | ~170 lines |
+| **1a. Tenancy models** — *implemented 2026-10-27; 170 tests green on SQLite and PostgreSQL* | `PublicModel`; `Organization`, `OrganizationMembership`, `Workspace`, `WorkspaceMembership` and their migrations; a data migration giving every existing user a personal workspace and owner membership; `services/access/resolvers.py`, `services/errors.py`; read-only admin for the four models; user deletion disabled in the admin | Constraint tests (one owner kind, unique personal workspace, unique memberships, CHECKs) pass on PostgreSQL; the data migration is tested forwards, including re-running it on users who already have a workspace; `require_workspace_role` returns 404 for non-members and 403 for a role that is too low, using one query; the admin cannot delete or edit tenancy rows | ~170 lines |
 | **1b. Authentication and audit** | ADR-0007 in code: `EmailBackend`, an email non-blank CHECK, an `authenticate_header` subclass (`401`), login throttles (IP and email), `SESSION_COOKIE_AGE` and `SESSION_SAVE_EVERY_REQUEST`; auth endpoints; `register_user` and `ensure_personal_workspace` on sign-in (I1); the `audit` app | Registering creates exactly one personal workspace; a `createsuperuser` account gets one on first sign-in; the sixth failed login per minute gets `429`; unauthenticated calls get `401` with `WWW-Authenticate: Session`; `test_anonymous_requests_are_rejected_by_default` is updated; login events are recorded without passwords | ~180 lines |
 | **1c. Workspace API** | `WorkspaceScopedMixin`; workspace and workspace-member endpoints; `services/workspaces/` (I3, I5, I6); the `recover_workspace_owner` command | Full role matrix; non-member gets `404`; viewer gets `403` on writes; creating a workspace makes its creator the owner, and a failure part-way leaves nothing behind; last owner cannot leave or be demoted, including under concurrency; personal workspace rejects members; inactive users cannot be added; recovery refuses every unsafe case and always writes its audit event; query budgets in §4 hold | ~210 lines |
 | **1d. Organization API** | Organization and organization-member endpoints; `services/organizations/` (I2, I4) | Removing a member from the organization removes their workspace memberships in it, and is blocked if they are the last owner of one; last admin is protected; the organization admin cannot read a workspace they are not a member of | ~150 lines |

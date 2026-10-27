@@ -71,7 +71,7 @@ select = [
 "apps/*/models.py" = ["RUF012"]  # Django Meta options are conventionally lists
 
 [tool.ruff.lint.isort]
-known-first-party = ["config", "apps", "services", "domain", "infrastructure"]
+known-first-party = ["config", "api", "apps", "services", "domain", "infrastructure"]
 
 # --------------------------------------------------------------------------
 # Mypy: static type checking
@@ -109,7 +109,7 @@ filterwarnings = ["error"]
 
 [tool.coverage.run]
 branch = true
-source = ["config", "apps", "services", "domain", "infrastructure"]
+source = ["config", "api", "apps", "services", "domain", "infrastructure"]
 omit = ["*/migrations/*", "config/asgi.py", "config/wsgi.py"]
 
 [tool.coverage.report]

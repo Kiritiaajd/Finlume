@@ -10,7 +10,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .exceptions import error_body
+from api.exceptions import error_body
 
 logger = logging.getLogger(__name__)
 

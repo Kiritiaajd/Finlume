@@ -210,6 +210,8 @@ process holding it and stops.
 | `Web dependencies are not installed` | `cd apps/web` then `npm ci` |
 | `Timed out ... waiting for the services` | Read the `[api]` / `[web]` lines above it, or `.dev/logs/`. Common causes are a syntax error in a settings change or a broken `node_modules` |
 | `Database configuration: PostgreSQL is selected (the default) but POSTGRES_... are not set` | Create `.env` from `.env.example` and fill in the `POSTGRES_*` values ([§3](#3-database-postgresql-the-development-default)) |
+| Database commands (`showmigrations`, `migrate`, `runserver`, PostgreSQL tests) hang or are very slow on Windows, while `manage.py check` is instant | `POSTGRES_HOST=localhost` resolves to IPv6 `::1` first, but the Compose container listens on IPv4 `127.0.0.1` only, so each connection waits for the IPv6 attempt to time out. Set `POSTGRES_HOST=127.0.0.1` in `.env`. |
+| `python manage.py ...` fails with `ImportError: cannot import name 'batched' from 'itertools'` | You are running an old system Python (3.10 or 3.11). Activate the virtual environment first: `.\.venv\Scripts\Activate.ps1` (PowerShell), `.venv\Scripts\activate.bat` (cmd) or `source .venv/Scripts/activate` (Git Bash). `python --version` must show 3.12 or newer. |
 | `Cannot use the database: ... port 55432 failed ...` | Start PostgreSQL (`docker compose up -d db` for the Compose option) or correct `POSTGRES_HOST` / `POSTGRES_PORT` |
 | Warning: `pending migration(s)` | Review, then run `python manage.py migrate` in `backend/` yourself |
 | Warning: health 503 | The database became unreachable after startup. Check that PostgreSQL is still running |
@@ -238,7 +240,8 @@ Every variable has a placeholder in [`.env.example`](../../.env.example). Never 
 | `FINLUME_TEST_DB_ENGINE` | Database for pytest, independent of `FINLUME_DB_ENGINE`. `postgresql` creates and drops `test_<POSTGRES_DB>`. | `sqlite` (in memory) |
 | `FINLUME_REQUIRE_POSTGRES_TESTS` | When set (CI), pytest fails unless the tests use PostgreSQL. | unset |
 | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Database credentials; also read by `compose.yaml`. | required when the engine is `postgresql` |
-| `POSTGRES_HOST`, `POSTGRES_PORT` | Database address. `POSTGRES_PORT` is also the Compose container's host port. | `localhost`, `5432` (`.env.example` and `compose.yaml` use `55432`) |
+| `POSTGRES_HOST`, `POSTGRES_PORT` | Database address. `POSTGRES_PORT` is also the Compose container's host port. Use `127.0.0.1` rather than `localhost` (see Troubleshooting). | `127.0.0.1`, `5432` (`.env.example` and `compose.yaml` use `55432`) |
+| `POSTGRES_CONNECT_TIMEOUT` | Seconds before a connection attempt fails instead of hanging. | `5` |
 | `POSTGRES_SSLMODE` | libpq `sslmode`. | `prefer` |
 | `POSTGRES_CONN_MAX_AGE` | Persistent connection lifetime (seconds). | `60` |
 | `FINLUME_PRIVATE_STORAGE_ROOT` | Absolute path for uploaded documents; must be outside web-served directories (enforced by check `finlume.E001`). | `backend/var/private` |

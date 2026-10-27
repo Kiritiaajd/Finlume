@@ -13,11 +13,18 @@ from typing import Any
 
 from django.core.exceptions import PermissionDenied as DjangoPermissionDenied
 from django.http import Http404
-from rest_framework import exceptions
+from rest_framework import exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import exception_handler
 
-from .request_context import get_request_id
+from apps.core.request_context import get_request_id
+from services.errors import ConflictError
+
+
+class Conflict(exceptions.APIException):
+    status_code = status.HTTP_409_CONFLICT
+    default_code = "conflict"
+    default_detail = "The request conflicts with the current state."
 
 
 def error_body(code: str, message: str, details: Any = None) -> dict[str, Any]:
@@ -38,6 +45,10 @@ def api_exception_handler(exc: Exception, context: dict[str, Any]) -> Response |
     them, rolls back the request transaction and answers through
     ``apps.core.views.server_error``.
     """
+    if isinstance(exc, ConflictError):
+        # A use-case error, not a DRF one: DRF's handler would ignore it.
+        exc = Conflict(exc.message)
+
     response = exception_handler(exc, context)
     if response is None:
         return None

@@ -109,7 +109,7 @@ silently.
 
 - Logs include the request ID, route, status, latency and user `public_id` where relevant. They **never** include amounts, statement contents, file contents, passwords, tokens or the full query strings of financial endpoints.
 - SQL query logging (`django.db.backends`) is set to `WARNING` by default because SQL parameters can contain financial values. This is implemented in `config/settings/base.py`.
-- API errors return only a safe message and the request ID. Internal exception text never reaches the client. This is implemented in `apps/core/exceptions.py`.
+- API errors return only a safe message and the request ID. Internal exception text never reaches the client. This is implemented in `api/exceptions.py`.
 
 ## 9. Test and sample data
 

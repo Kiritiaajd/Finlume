@@ -15,8 +15,8 @@ Presentation / API  ──►  Application  ──►  Domain
 
 | Layer | Location | May depend on | Must not depend on |
 |-------|----------|---------------|--------------------|
-| Presentation / API | `backend/apps/<module>/` (views, serializers, `urls.py`, `admin.py`) | Application, and Domain value types used for input/output | Another module's models or views |
-| Application | `backend/services/` (Phase 1) | Domain, ports it defines, Django transactions and the ORM (querysets used directly; no repository layer while there is one database) | Presentation (no `Request`, no serializers, no `rest_framework` imports) |
+| Presentation / API | `backend/apps/<module>/api/` (views, serializers, `urls.py`, DRF adapters), `backend/apps/<module>/admin.py`, and shared plumbing in `backend/api/` (error envelope, pagination, permissions) | Application, and Domain value types used for input/output | Another module's models or views |
+| Application | `backend/services/` (Phase 1) | Domain, ports it defines, Django transactions and the ORM (querysets used directly; no repository layer while there is one database) | Presentation (no `Request`, no serializers, no `rest_framework` or `api` imports) |
 | Domain | `backend/domain/` | Python standard library and other domain packages | Django, DRF, `apps`, `config`, `infrastructure`, I/O libraries |
 | Infrastructure | `backend/infrastructure/` and Django models in `backend/apps/<module>/models.py` | Django, third-party libraries, Domain types | Presentation |
 
@@ -107,15 +107,15 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 
 | App | Status | Owns | Introduce when |
 |-----|--------|------|----------------|
-| `core` | **Implemented** | Health endpoint, JSON error envelope, request IDs, pagination. No models. | — |
+| `core` | **Implemented** | Shared Django integration: the abstract `PublicModel`, `ReadOnlyModelAdmin`, request IDs and the health endpoint. The error envelope and pagination moved to `backend/api/` | — |
 | `accounts` | **Implemented** | Custom `User` model (`public_id`, case-insensitive unique email). It had to exist before the first migration. | — |
-| `organizations` | Planned (Phase 1) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
-| `workspaces` | Planned (Phase 1) | `Workspace` (personal or organization; the tenancy boundary), `WorkspaceMembership` (owner, editor, viewer) and `scoping.py`, the one helper every tenant view inherits | MVP step 1a |
+| `organizations` | **Implemented** (models; API in 1d) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
+| `workspaces` | **Implemented** (models and backfill; API in 1c) | `Workspace` (personal or organization; the tenancy boundary), `WorkspaceMembership` (owner, editor, viewer) and `api/scoping.py`, the one helper every tenant view inherits | MVP step 1a |
 | `financial_records` | Planned (Phase 1) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact` | Manual statement entry |
 | `ingestion` | Conditional (Phase 1) | Only tables for import batches and row errors, if needed. The import workflow itself lives in `services/statement_analysis` and `services/documents` (§3.3) | CSV upload, if import batches need persisting |
 | `documents` | Planned (Phase 1, minimal) | `SourceDocument` metadata (kind, SHA-256, private storage key) | First stored upload (the CSV file kept for provenance) |
 | `analysis` | Planned (Phase 1) | `AnalysisRun` (immutable), `MetricResult`, `AnalysisIssue` | Persisting an engine run |
-| `reports` | Planned (Phase 1) | `Report`: a saved, titled view over one or more analysis runs | Dashboard and report screens |
+| `reports` | Planned (Phase 1; a separate app only if reports need their own persistence and endpoints) | `Report`: a saved, titled view over one or more analysis runs | Dashboard and report screens |
 | `audit` | Planned (Phase 1) | `AuditEvent` (actor, action, target; no financial values) | First state-changing endpoint |
 | `personal_finance` | Future (Phase 4) | Accounts, transactions, categories, budgets | Personal-finance phase |
 | `investments`, `market_data` | Future (Phase 5) | Securities, listings, prices, portfolios, holdings | Investment phase |
@@ -237,6 +237,6 @@ Shared code moves into a common place only when a second module actually needs i
 2. Put calculations and rules in `domain/` first, with unit tests and no Django.
 3. Create the Django app with its first real model, migration, admin registration and API
    tests.
-4. Add the app's URLs to [`config/api_v1.py`](../../backend/config/api_v1.py).
+4. Put its endpoints in `apps/<app>/api/` and add `apps.<app>.api.urls` to [`config/api_v1.py`](../../backend/config/api_v1.py). Put its workflows in `services/<capability>/`.
 5. Update this document's tables and [DATA_MODEL.md](../data/DATA_MODEL.md).
 6. Write an ADR if the module introduces a new dependency, datastore or boundary rule.

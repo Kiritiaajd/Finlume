@@ -14,6 +14,7 @@ SERVICES_DIR = BACKEND_DIR / "services"
 FORBIDDEN_IN_DOMAIN = (
     "django",
     "rest_framework",
+    "api",
     "apps",
     "services",
     "config",
@@ -22,8 +23,9 @@ FORBIDDEN_IN_DOMAIN = (
     "requests",
 )
 
-# Use cases never see HTTP: no DRF requests, serializers or exceptions.
-FORBIDDEN_IN_SERVICES = ("rest_framework",)
+# Use cases never see HTTP: no DRF requests, serializers or exceptions, and no
+# shared API plumbing.
+FORBIDDEN_IN_SERVICES = ("rest_framework", "api")
 
 
 def _imported_modules(path: Path) -> set[str]:

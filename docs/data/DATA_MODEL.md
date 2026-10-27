@@ -30,7 +30,7 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 | `Workspace` | `workspaces` | MVP | Tenancy and permission boundary: a user's personal workspace, or an organization workspace |
 | `WorkspaceMembership` | `workspaces` | MVP | User's role in a workspace; the only source of workspace access |
 | `ReportingEntity` | `financial_records` | **Implemented** (step 2a) | The business, person or company whose statements are analysed |
-| `SourceDocument` | `documents` | **Implemented** (step 2a; manual entry only, files in step 4) | Where figures came from: manual entry session or uploaded file |
+| `SourceDocument` | `documents` | **Implemented** (manual entry in step 2a, CSV files in step 4) | Where figures came from: manual entry session or uploaded file |
 | `FinancialStatement` | `financial_records` | **Implemented** (step 2a) | One statement for one entity, one period, one version |
 | `StatementLineItem` | `financial_records` | **Implemented** (step 2a) | A raw row exactly as entered or uploaded |
 | `FinancialFact` | `financial_records` | **Implemented** (step 2a) | A verified, normalised figure in base currency units |
@@ -195,23 +195,32 @@ Constraints: `UNIQUE (workspace, name)` (exact, case-sensitive).
 `identifiers` (ticker, ISIN or registration number) is added in Phase 5, when something
 interprets it.
 
-### 4.5 SourceDocument (Implemented: manual entry)
+### 4.5 SourceDocument (Implemented)
 
 Records where figures came from. Every statement has exactly one source.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `workspace` | FK → Workspace, `CASCADE` | |
-| `kind` | varchar(16) | `manual_entry` (CHECK). `csv_upload` arrives in step 4, `pdf` in Phase 2 and `provider` in Phase 5 |
+| `kind` | varchar(16) | `manual_entry` or `csv_upload` (CHECK); later `pdf` (Phase 2) and `provider` (Phase 5) |
 | `created_by` | FK → User, `SET NULL`, nullable | Who entered or uploaded it. `created_at` is the upload time |
+| `original_filename` | varchar(255), blank for manual entry | Display only; never used as a storage path |
+| `content_type` | varchar(100), blank for manual entry | Detected from the content (`text/csv` once it decodes as UTF-8 text), not trusted from the client |
+| `size_bytes` | bigint, null for manual entry | |
+| `sha256` | char(64) as varchar, blank for manual entry | Lowercase hex fingerprint of the stored bytes |
+| `storage_key` | varchar(255), blank for manual entry | Random key in the `private_documents` storage, `documents/<workspace>/<random>`; never derived from the filename |
+| `idempotency_key` | uuid, nullable | The client's `Idempotency-Key` for the upload that created it |
 
-**Added in step 4 with CSV import**, together with the code that writes them: the file
-columns `original_filename` (display only, never a storage path), `content_type` (detected
-from the content), `size_bytes`, `sha256` (fingerprint of the stored bytes) and
-`storage_key` (random key in the `private_documents` storage); the CHECK
-`kind = 'manual_entry' OR (sha256 IS NOT NULL AND storage_key IS NOT NULL)`; and the index
-`(workspace, sha256)`, which detects re-uploads of the same file (a warning, not a
+Constraints:
+
+- `CHECK`: manual entry has no file columns; a file kind has a size, a 64-character lowercase hex `sha256` and a `storage_key` (`documents_sourcedocument_file_fields`).
+- Partial `UNIQUE (workspace, created_by, idempotency_key)` where the key is set.
+
+Index: `(workspace, sha256)`, which detects re-uploads of the same file (a warning, not a
 rejection).
+
+A CSV row keeps its file line number in `StatementLineItem.source_reference` (`line 7`),
+so every fact traces to its line, its statement version and this document.
 
 Files are stored only through `PrivateFileSystemStorage`. This is **Implemented**:
 `url()` raises `PublicURLNotAllowedError` and files are written with mode `0o600`.

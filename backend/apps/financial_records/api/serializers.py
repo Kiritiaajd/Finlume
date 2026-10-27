@@ -21,6 +21,7 @@ from typing import Any
 
 from rest_framework import serializers
 
+from apps.documents.models import SourceDocument
 from apps.financial_records.models import (
     LINE_ITEMS,
     PERIOD_TYPES,
@@ -35,9 +36,8 @@ from apps.financial_records.models import (
 from domain.financial_statements import LineItem, Scale
 from domain.financial_statements.line_items import NON_NEGATIVE_ITEMS, NON_POSITIVE_ITEMS
 from domain.validation import Issue
+from services.statement_analysis.rows import RowInput, amount_problem, row_problems
 
-MAX_ABS = Decimal("1E+24")  # numeric(30,6)
-MAX_DECIMAL_PLACES = 6
 MAX_ROWS = 500
 
 _CURRENCY = r"^[A-Z]{3}$"
@@ -50,8 +50,6 @@ class AmountField(serializers.Field[Decimal, str, str, Any]):
         "not_a_string": 'Send amounts as decimal strings, for example "1250.50".',
         "invalid": "A valid number is required.",
         "too_long": "Amounts have at most 64 characters.",
-        "decimal_places": f"Amounts have at most {MAX_DECIMAL_PLACES} decimal places.",
-        "too_large": "Amounts must be smaller than 10^24.",
     }
 
     def to_internal_value(self, data: Any) -> Decimal:
@@ -65,11 +63,9 @@ class AmountField(serializers.Field[Decimal, str, str, Any]):
             self.fail("invalid")
         if not value.is_finite():
             self.fail("invalid")
-        exponent = value.normalize().as_tuple().exponent
-        if isinstance(exponent, int) and -exponent > MAX_DECIMAL_PLACES:
-            self.fail("decimal_places")
-        if abs(value) >= MAX_ABS:
-            self.fail("too_large")
+        problem = amount_problem(value)
+        if problem:
+            raise serializers.ValidationError(problem)
         return value
 
     def to_representation(self, value: Decimal) -> str:
@@ -101,8 +97,8 @@ class LineItemInputSerializer(serializers.Serializer[Any]):
         return values
 
 
-class StatementInputSerializer(serializers.Serializer[Any]):
-    """Create a draft, or (``partial=True`` with ``context["statement"]``) edit one."""
+class _StatementHeaderSerializer(serializers.Serializer[Any]):
+    """The fields that describe a statement, whatever its rows come from."""
 
     statement_type = serializers.ChoiceField(choices=STATEMENT_TYPES)
     period_start = serializers.DateField()
@@ -110,6 +106,22 @@ class StatementInputSerializer(serializers.Serializer[Any]):
     period_type = serializers.ChoiceField(choices=PERIOD_TYPES)
     currency = serializers.RegexField(_CURRENCY, max_length=3)
     reported_scale = serializers.ChoiceField(choices=SCALES)
+
+
+class StatementImportSerializer(_StatementHeaderSerializer):
+    """A statement CSV (multipart) and the statement it holds."""
+
+    file = serializers.FileField(max_length=255)
+
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
+        if attrs["period_start"] > attrs["period_end"]:
+            raise serializers.ValidationError({"period_end": ["The period ends before it starts."]})
+        return attrs
+
+
+class StatementInputSerializer(_StatementHeaderSerializer):
+    """Create a draft, or (``partial=True`` with ``context["statement"]``) edit one."""
+
     line_items = serializers.ListField(
         child=LineItemInputSerializer(), max_length=MAX_ROWS, required=False
     )
@@ -150,34 +162,11 @@ class StatementInputSerializer(serializers.Serializer[Any]):
 
 
 def _row_errors(
-    rows: list[dict[str, Any]], statement_type: str, scale: Scale
+    rows: list[RowInput], statement_type: str, scale: Scale
 ) -> dict[str, dict[str, list[str]]]:
-    """Rules that need the whole statement: code placement, duplicates, scaled size.
-
-    Keyed by row index, like DRF's own list errors.
-    """
-    errors: dict[str, dict[str, list[str]]] = {}
-    seen: dict[str, int] = {}
-    for index, row in enumerate(rows):
-        key = str(index)
-        code, amount = row["line_item_code"], row["amount"]
-        if code:
-            home = LineItem(code).statement_type.value
-            if home != statement_type:
-                errors.setdefault(key, {})["line_item_code"] = [
-                    f"{code} belongs on the {home}, not the {statement_type}."
-                ]
-            elif code in seen:
-                errors.setdefault(key, {})["line_item_code"] = [
-                    f"{code} is already on row {seen[code] + 1}."
-                ]
-            else:
-                seen[code] = index
-        if amount is not None and abs(amount.scaleb(scale.value)) >= MAX_ABS:
-            errors.setdefault(key, {})["amount"] = [
-                f"Too large once scaled from {scale.name.lower()} to units."
-            ]
-    return errors
+    """The shared row rules, keyed by row index like DRF's own list errors."""
+    problems = row_problems(rows, statement_type=statement_type, scale=scale)
+    return {str(index): fields for index, fields in problems.items()}
 
 
 class RestatementInputSerializer(serializers.Serializer[Any]):
@@ -253,6 +242,18 @@ def line_item_data(row: StatementLineItem) -> dict[str, Any]:
         "amount": None if row.reported_amount is None else format(row.reported_amount, "f"),
         "raw_value": row.raw_value,
         "source_reference": row.source_reference or None,
+    }
+
+
+def document_data(document: SourceDocument) -> dict[str, Any]:
+    """A source document's metadata. The file itself has no URL (ADR-0005)."""
+    return {
+        "id": document.public_id,
+        "kind": document.kind,
+        "filename": document.original_filename or None,
+        "size_bytes": document.size_bytes,
+        "sha256": document.sha256 or None,
+        "created_at": document.created_at,
     }
 
 

@@ -2,6 +2,7 @@ from django.urls import URLPattern, URLResolver, path
 
 from .views import (
     EntityDetailView,
+    EntityImportView,
     EntityListView,
     EntityStatementListView,
     LineItemTaxonomyView,
@@ -22,6 +23,11 @@ urlpatterns: list[URLPattern | URLResolver] = [
         f"{_WS}/entities/<uuid:entity_id>/statements/",
         EntityStatementListView.as_view(),
         name="entity-statements",
+    ),
+    path(
+        f"{_WS}/entities/<uuid:entity_id>/imports/",
+        EntityImportView.as_view(),
+        name="entity-imports",
     ),
     path(
         f"{_WS}/statements/<uuid:statement_id>/",

@@ -18,8 +18,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
-from typing import TypedDict
 
 from django.db import IntegrityError, transaction
 from django.utils import timezone
@@ -47,16 +45,7 @@ from domain.validation import Issue, validate_fact_set
 from services.errors import ConflictError
 
 from .normalisation import build_facts
-
-
-class RowInput(TypedDict):
-    """One raw row as entered. ``row_number`` comes from its position."""
-
-    label: str
-    line_item_code: str  # "" when unmapped
-    amount: Decimal | None  # None for a blank cell
-    raw_value: str
-    source_reference: str
+from .rows import RowInput
 
 
 def create_entity(
@@ -96,18 +85,23 @@ def create_statement(
     currency: str,
     reported_scale: str,
     rows: Sequence[RowInput],
+    source: SourceDocument | None = None,
 ) -> FinancialStatement:
-    """A new draft, version 1, with its raw rows and a manual-entry source."""
-    if FinancialStatement.objects.filter(
+    """A new draft, version 1, with its raw rows.
+
+    Its source is ``source`` (an uploaded file) or, by default, a new
+    manual-entry document.
+    """
+    ensure_new_statement(
         entity=entity,
         statement_type=statement_type,
         period_start=period_start,
         period_end=period_end,
-    ).exists():
-        raise _already_exists(statement_type)
-    source = SourceDocument.objects.create(
-        workspace=workspace, kind=SourceDocumentKind.MANUAL_ENTRY, created_by=actor
     )
+    if source is None:
+        source = SourceDocument.objects.create(
+            workspace=workspace, kind=SourceDocumentKind.MANUAL_ENTRY, created_by=actor
+        )
     try:
         with transaction.atomic():
             statement = FinancialStatement.objects.create(
@@ -133,6 +127,19 @@ def create_statement(
         statement_type=statement_type,
     )
     return statement
+
+
+def ensure_new_statement(
+    *, entity: ReportingEntity, statement_type: str, period_start: date, period_end: date
+) -> None:
+    """Refuse a second statement of one type for one entity and period."""
+    if FinancialStatement.objects.filter(
+        entity=entity,
+        statement_type=statement_type,
+        period_start=period_start,
+        period_end=period_end,
+    ).exists():
+        raise _already_exists(statement_type)
 
 
 #: Fields that identify a statement; a restatement may not change them.

@@ -246,6 +246,8 @@ Every variable has a placeholder in [`.env.example`](../../.env.example). Never 
 | `POSTGRES_CONN_MAX_AGE` | Persistent connection lifetime (seconds). | `60` |
 | `FINLUME_PRIVATE_STORAGE_ROOT` | Absolute path for uploaded documents; must be outside web-served directories (enforced by check `finlume.E001`). | `backend/var/private` |
 | `FINLUME_MAX_REQUEST_BYTES` | Maximum request body and non-file form data. It does **not** limit uploaded files; upload endpoints enforce their own limit. Also the size above which uploads spool to a temporary file. | `5242880` (5 MiB) |
+| `FINLUME_MAX_UPLOAD_BYTES` | Largest statement CSV accepted by an import (`413` above it, before anything is stored). | `1048576` (1 MiB) |
+| `FINLUME_MAX_IMPORT_ROWS` | Most data rows in a statement CSV. Above 500, an imported draft can no longer be edited row by row through `PATCH`. | `500` |
 | `FINLUME_LOG_LEVEL` | Root log level. | `INFO` |
 | `FINLUME_ADMIN_URL_PATH` | URL prefix of the Django admin. | `admin/` |
 | `FINLUME_THROTTLE_ANON`, `FINLUME_THROTTLE_USER` | DRF throttle rates. | `60/minute`, `1000/hour` |

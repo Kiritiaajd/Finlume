@@ -1,9 +1,10 @@
 """Statement analysis use cases: from stored statements to the domain engine's input."""
 
 from .assembly import AnalysisInput, assemble_analysis_input
+from .imports import ImportOutcome, import_statement_csv
 from .normalisation import build_facts
+from .rows import RowInput
 from .statements import (
-    RowInput,
     ValidationOutcome,
     create_entity,
     create_statement,
@@ -14,12 +15,14 @@ from .statements import (
 
 __all__ = [
     "AnalysisInput",
+    "ImportOutcome",
     "RowInput",
     "ValidationOutcome",
     "assemble_analysis_input",
     "build_facts",
     "create_entity",
     "create_statement",
+    "import_statement_csv",
     "restate_statement",
     "update_draft",
     "validate_statement",

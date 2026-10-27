@@ -51,6 +51,11 @@ class LineItem(StrEnum):
     def statement_type(self) -> StatementType:
         return _STATEMENT_OF[self]
 
+    @property
+    def definition(self) -> str:
+        """What a figure must include, shown as help text where figures are entered."""
+        return DEFINITIONS[self]
+
 
 _INCOME = StatementType.INCOME_STATEMENT
 _BALANCE = StatementType.BALANCE_SHEET
@@ -78,6 +83,75 @@ _STATEMENT_OF: dict[LineItem, StatementType] = {
     LineItem.CAPITAL_EXPENDITURE: _CASH,
     LineItem.NET_CASH_FROM_INVESTING_ACTIVITIES: _CASH,
     LineItem.NET_CASH_FROM_FINANCING_ACTIVITIES: _CASH,
+}
+
+#: The meaning of each code. ``operating_income``, ``net_income``, ``total_debt``
+#: and ``total_equity`` follow decision A4 (FOUNDATION_AUDIT FA-10): equity and
+#: profit both include non-controlling interests, so ROE pairs like with like
+#: and the balance sheet identity holds. Changing a definition changes what a
+#: ratio measures, so it needs the same review as a formula.
+DEFINITIONS: dict[LineItem, str] = {
+    LineItem.REVENUE: (
+        "Income from ordinary activities for the period, such as sales and fees, "
+        "net of returns, discounts and taxes collected for others."
+    ),
+    LineItem.COST_OF_REVENUE: (
+        "Direct cost of the goods sold or services delivered in the period, as a positive amount."
+    ),
+    LineItem.GROSS_PROFIT: "Revenue minus cost of revenue, as reported.",
+    LineItem.OPERATING_EXPENSES: (
+        "Operating costs other than cost of revenue, such as selling, general, administrative "
+        "and research costs, as a positive amount."
+    ),
+    LineItem.OPERATING_INCOME: (
+        "Operating profit as reported: profit from operations before finance costs and tax. "
+        "Not recomputed as EBIT."
+    ),
+    LineItem.INTEREST_EXPENSE: (
+        "Interest and other finance costs on borrowings for the period, as a positive amount."
+    ),
+    LineItem.INCOME_BEFORE_TAX: "Profit before income tax, as reported.",
+    LineItem.INCOME_TAX_EXPENSE: (
+        "Current and deferred income tax for the period; negative for a tax benefit."
+    ),
+    LineItem.NET_INCOME: (
+        "Profit for the period after tax, including the share attributable to "
+        "non-controlling interests; negative for a loss."
+    ),
+    LineItem.CASH_AND_CASH_EQUIVALENTS: (
+        "Cash on hand, bank balances and short-term deposits readily convertible to cash, "
+        "at period end."
+    ),
+    LineItem.INVENTORIES: "Goods and materials held for sale or production, at period end.",
+    LineItem.TOTAL_CURRENT_ASSETS: (
+        "Assets expected to be realised within twelve months, at period end."
+    ),
+    LineItem.TOTAL_ASSETS: "All assets, current and non-current, at period end.",
+    LineItem.TOTAL_CURRENT_LIABILITIES: "Obligations due within twelve months, at period end.",
+    LineItem.TOTAL_LIABILITIES: "All liabilities, current and non-current, at period end.",
+    LineItem.TOTAL_DEBT: (
+        "Interest-bearing borrowings at period end, current and non-current, including bank "
+        "overdrafts and the current portion of long-term borrowings. Excludes lease liabilities."
+    ),
+    LineItem.TOTAL_EQUITY: (
+        "Total equity at period end, including non-controlling interests, so that total assets "
+        "equal total liabilities plus total equity; negative when liabilities exceed assets."
+    ),
+    LineItem.NET_CASH_FROM_OPERATING_ACTIVITIES: (
+        "Net cash from operating activities for the period; negative for a net outflow."
+    ),
+    LineItem.CAPITAL_EXPENDITURE: (
+        "Cash paid for property, plant, equipment and intangible assets in the period, "
+        "as a negative amount."
+    ),
+    LineItem.NET_CASH_FROM_INVESTING_ACTIVITIES: (
+        "Net cash from investing activities for the period, including capital expenditure; "
+        "negative for a net outflow."
+    ),
+    LineItem.NET_CASH_FROM_FINANCING_ACTIVITIES: (
+        "Net cash from financing activities for the period, such as borrowing, repayments, "
+        "shares issued and dividends paid; negative for a net outflow."
+    ),
 }
 
 #: Items that are positive magnitudes under the sign convention above.

@@ -49,7 +49,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 | FA-07 | Medium | API | 401 vs 403 for unauthenticated requests is inconsistent across docs | **Decided**: 401 ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
 | FA-08 | Medium | Security | No brute-force protection on admin or (future) API login | **Decided** ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
 | FA-09 | Medium | Security / ops | Throttle counters are per process | Open: plan step 8 |
-| FA-10 | Medium | Engine | Line-item definitions behind four ratios are ambiguous | **Needs approval** |
+| FA-10 | Medium | Engine | Line-item definitions behind four ratios are ambiguous | **Approved** and implemented in step 3a ([§11](#11-follow-up-2026-10-27)) |
 | FA-11 | Medium | Engine | Input fingerprint is designed but not implemented | Open: plan step 5 |
 | FA-12 | Medium | CI | Workflow never executed; Python 3.13 path unverified | **Mostly resolved**: CI green, Dependabot added; SHA pinning and repository settings open ([§11](#11-follow-up-2026-10-27)) |
 | FA-13 | Medium | Dev environment | Local PostgreSQL port collision; risk of testing against an unrelated server | **Fixed** (docs and `.env.example`) |
@@ -139,7 +139,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 - **Recommendation:** use the `DatabaseCache` backend (no Redis needed; `createcachetable` at deploy), or Redis once Phase 2 introduces it.
 - **Acceptance:** a multi-process deployment test, or documented operator configuration.
 
-### FA-10 — Ambiguous line-item definitions behind four ratios (Needs approval)
+### FA-10 — Ambiguous line-item definitions behind four ratios (Approved)
 
 - **Evidence:** `domain/financial_statements/line_items.py` defines codes without definitions. These affect results:
   - `total_debt` (`debt_to_equity`): does it include lease liabilities, the current portion of long-term debt, or bank overdrafts?
@@ -298,4 +298,5 @@ sections above are left as they were found on 2026-10-25.
 | §7 open question (can a business workspace outlive every owner?) | Answered by the proposed ADR-0008: no. The last owner cannot leave until ownership is transferred, and recovery after every owner is deactivated is an audited, operator-only command. |
 | A8 (D-07) | The retention defaults in [DATA_LIFECYCLE §7](../data/DATA_LIFECYCLE_AND_RETENTION.md#7-retention-periods) are approved. |
 | A2 (FA-02) | The recommended default is approved (2026-10-27) and implemented in step 2b as `services.statement_analysis.assemble_analysis_input`. Only `confirmed` facts are used. A missing statement type is allowed, and the engine reports its ratios as `missing_input`. Mixed currencies, or no validated statement for the period, are refused with `ConflictError` (`409 conflict`). Point 4 (a code only within its own statement type) is enforced when raw rows become facts (`build_facts`) and again during assembly. |
-| Still open | A4 (FA-10, before step 3) and A12 (before announcing the repository). |
+| A4 (FA-10) | The suggested defaults are approved (2026-10-27): debt excludes lease liabilities; equity and net income both include non-controlling interests; operating income is as reported. They are `LineItem.definition` in the domain, documented in [the calculation conventions, §4](../data/FINANCIAL_CALCULATION_CONVENTIONS.md#definitions-decision-a4), and served as help text by `GET /api/v1/line-items/` (step 3a). Formulas and `ENGINE_VERSION` are unchanged. |
+| Still open | A12 (before announcing the repository). |

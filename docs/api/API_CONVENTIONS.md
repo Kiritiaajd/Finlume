@@ -181,7 +181,7 @@ Access comes only from workspace membership. A caller who is not a member gets `
 
 Workspace: `{"id", "name", "kind": "personal" | "organization", "organization_id", "my_role": "owner" | "editor" | "viewer", "created_at"}`; `organization_id` is `null` for a personal workspace. Member: `{"user_id", "email", "role", "joined_at"}`.
 
-### Entities and statements (MVP step 3a)
+### Entities and statements (MVP step 3)
 
 Under `workspaces/{ws}/`. Viewers read; editors and owners write. An entity or statement ID from another workspace is not found (`404`).
 
@@ -192,8 +192,10 @@ Under `workspaces/{ws}/`. Viewers read; editors and owners write. An entity or s
 | `GET entities/{id}/` | Viewer | `200`, the entity | |
 | `GET entities/{id}/statements/` | Viewer | `200`, a page of statements | Every version, latest period first |
 | `POST entities/{id}/statements/` | Editor | `201`, the draft with its rows | Creates version 1 as a `draft`, with a manual-entry source. A statement of that type already existing for the period → `409` (edit its draft, or restate it) |
-| `GET statements/{id}/` | Viewer | `200`, the statement with its rows | |
-| `PATCH statements/{id}/` | Editor | `200`, the statement with its rows | Drafts only, otherwise `409`. Sending `line_items` replaces every row. Changing `statement_type` or `reported_scale` requires sending `line_items` again. A restatement draft keeps its statement type and period (`409`) |
+| `GET statements/{id}/` | Viewer | `200`, the statement with its rows and facts | `facts` is empty for a draft |
+| `PATCH statements/{id}/` | Editor | `200`, the statement with its rows and facts | Drafts only, otherwise `409`. Sending `line_items` replaces every row. Changing `statement_type` or `reported_scale` requires sending `line_items` again. A restatement draft keeps its statement type and period (`409`) |
+| `POST statements/{id}/validate/` | Editor | `200`, the statement with its rows, facts and `issues` | Draft → `validated`. Each mapped row with an amount becomes a `confirmed` fact in base units. For a restatement, the version it restates becomes `superseded` in the same transaction. Consistency warnings (`unexpected_sign`, `balance_sheet_imbalance`, `subtotal_mismatch`) are returned in `issues` and never block. Not a draft, or no mapped figure at all → `409` |
+| `POST statements/{id}/restatements/` `{"reason", "line_items"?}` | Editor | `201`, the new draft with its rows | Only the `validated` version, otherwise `409`. Creates version *n + 1* as a draft that restates it. Without `line_items`, the rows of version *n* are copied. Version *n*, its facts and the analyses that used them stay unchanged until the draft is validated. A restatement already in progress → `409` |
 
 Statement body: `{"statement_type", "period_start", "period_end", "period_type", "currency", "reported_scale", "line_items": [{"label", "line_item_code"?, "amount"?, "source_reference"?}]}`. Rows are numbered in the order sent.
 
@@ -203,7 +205,9 @@ Input rules, each answered with a field-level `400 validation_error` (`details.l
 - `line_item_code` is a taxonomy code, or blank for an unmapped row. It must belong to the statement's type, and appear at most once per statement.
 - `currency` is three uppercase letters; `period_end` is not before `period_start`; at most 500 rows.
 
-Statement: `{"id", "entity_id", "statement_type", "period_start", "period_end", "period_type", "currency", "reported_scale", "status", "version", "supersedes_id", "restatement_reason", "created_at", "updated_at"}`, plus `line_items` on a single statement. Row: `{"id", "row_number", "label", "line_item_code", "amount", "raw_value", "source_reference"}`. `amount` is the figure as entered, in the reported scale, with 6 decimal places; `raw_value` is the exact text sent. Validating a draft and restating arrive in step 3b.
+Statement: `{"id", "entity_id", "statement_type", "period_start", "period_end", "period_type", "currency", "reported_scale", "status", "version", "supersedes_id", "restatement_reason", "created_at", "updated_at"}`, plus `line_items` on a single statement. Row: `{"id", "row_number", "label", "line_item_code", "amount", "raw_value", "source_reference"}`. `amount` is the figure as entered, in the reported scale, with 6 decimal places; `raw_value` is the exact text sent. Fact: `{"line_item", "value", "row_id", "review_status"}`, where `value` is in base units and `row_id` is the row it came from. Issue: `{"code", "severity", "message", "line_items"}`.
+
+Statuses change only by validating a draft, so they always match the restatement chain: one `validated` version per statement and period, earlier versions `superseded`, and at most one restatement `draft` in progress.
 
 ### `GET line-items/` (MVP step 3a)
 

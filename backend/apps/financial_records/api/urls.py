@@ -6,6 +6,8 @@ from .views import (
     EntityStatementListView,
     LineItemTaxonomyView,
     StatementDetailView,
+    StatementRestatementView,
+    StatementValidateView,
 )
 
 app_name = "financial_records"
@@ -25,5 +27,15 @@ urlpatterns: list[URLPattern | URLResolver] = [
         f"{_WS}/statements/<uuid:statement_id>/",
         StatementDetailView.as_view(),
         name="statement",
+    ),
+    path(
+        f"{_WS}/statements/<uuid:statement_id>/validate/",
+        StatementValidateView.as_view(),
+        name="statement-validate",
+    ),
+    path(
+        f"{_WS}/statements/<uuid:statement_id>/restatements/",
+        StatementRestatementView.as_view(),
+        name="statement-restatements",
     ),
 ]

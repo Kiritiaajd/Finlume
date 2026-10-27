@@ -140,6 +140,12 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - An entity or statement ID from another workspace answers `404`.
   - `GET /api/v1/line-items/`: the taxonomy with each code's statement type, sign convention and definition, as help text for entry forms.
   - Events `entity.created`, `statement.created` and `statement.updated` are audited, without amounts.
+- **Validating and restating statements (MVP step 3b):** step 3 is complete.
+  - `POST statements/{id}/validate/` turns a draft into the validated version and saves its facts in base units (`build_facts`), confirmed by the caller. Consistency warnings (`unexpected_sign`, `balance_sheet_imbalance`, `subtotal_mismatch`) are returned in `issues` and never block (acceptance criterion 5). A draft with no mapped figure is a `409`.
+  - `POST statements/{id}/restatements/` `{"reason", "line_items"?}` starts version *n + 1* of the validated version as a draft, copying its rows unless new ones are sent. Version *n*, its facts and the analyses that used them stay unchanged; validating the draft supersedes version *n* (acceptance criterion 8). One restatement at a time.
+  - Statuses change only by validating, which supersedes exactly the version being restated, before validating the new one. Both actions lock the validated version, then the draft, so concurrent requests queue (PostgreSQL concurrency tests).
+  - `GET statements/{id}/` now includes the statement's facts, each linked to its source row.
+  - Events `statement.validated` and `statement.restated` are audited, without amounts.
 - **Line-item definitions (decision A4, FA-10 approved):** `LineItem.definition` for all 21 codes. Debt excludes lease liabilities; equity and net income both include non-controlling interests; operating income is as reported. Formulas and `ENGINE_VERSION` are unchanged.
 
 ### Changed

@@ -42,16 +42,16 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 |---|---|---|---|---|
 | FA-01 | High | Engine | Ratio computation raised on very large quotients | **Fixed** |
 | FA-02 | High | Data model | No rule for assembling one fact set from separate statements | **Needs approval** |
-| FA-03 | High | PostgreSQL | No test has ever run on PostgreSQL | Open: environment |
-| FA-04 | High | Python | Python 3.10 reaches end of life this month | **Needs approval** |
+| FA-03 | High | PostgreSQL | No test has ever run on PostgreSQL | **Resolved** in CI ([§11](#11-follow-up-2026-10-27)) |
+| FA-04 | High | Python | Python 3.10 reaches end of life this month | **Fixed** ([§11](#11-follow-up-2026-10-27)) |
 | FA-05 | Medium | Data model | Planned `PROTECT` keys would block workspace and user deletion | **Fixed** (design docs) |
 | FA-06 | Medium | Security | Docs claimed an upload size limit that Django does not enforce for files | **Fixed** (docs and comment); enforcement planned |
-| FA-07 | Medium | API | 401 vs 403 for unauthenticated requests is inconsistent across docs | **Needs approval** |
-| FA-08 | Medium | Security | No brute-force protection on admin or (future) API login | Open: plan step 1 |
+| FA-07 | Medium | API | 401 vs 403 for unauthenticated requests is inconsistent across docs | **Decided**: 401 ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
+| FA-08 | Medium | Security | No brute-force protection on admin or (future) API login | **Decided** ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
 | FA-09 | Medium | Security / ops | Throttle counters are per process | Open: plan step 8 |
 | FA-10 | Medium | Engine | Line-item definitions behind four ratios are ambiguous | **Needs approval** |
 | FA-11 | Medium | Engine | Input fingerprint is designed but not implemented | Open: plan step 5 |
-| FA-12 | Medium | CI | Workflow never executed; Python 3.13 path unverified | Open: push |
+| FA-12 | Medium | CI | Workflow never executed; Python 3.13 path unverified | **Mostly resolved**: CI green, Dependabot added; SHA pinning and repository settings open ([§11](#11-follow-up-2026-10-27)) |
 | FA-13 | Medium | Dev environment | Local PostgreSQL port collision; risk of testing against an unrelated server | **Fixed** (docs and `.env.example`) |
 | FA-14 | Medium | Observability | 4xx log lines lost their request ID | **Fixed** |
 | FA-15 | Medium | Engine / ingestion | No magnitude or precision bounds on facts before persistence | Open: plan step 3 |
@@ -282,3 +282,18 @@ layering, security defaults, dependency hygiene and calculation core are sound.
 No dependency was added or upgraded. Nothing was committed or pushed, no database was
 created or modified other than the throwaway in-memory test database, and `LICENSE` is
 untouched.
+
+## 11. Follow-up (2026-10-27)
+
+This section records what happened to the findings and decisions after the audit. The
+sections above are left as they were found on 2026-10-25.
+
+| Item | Outcome |
+|---|---|
+| FA-03, A11 | The Phase 0 foundation was pushed, and GitHub Actions ran the backend suite on PostgreSQL 17 for Python 3.10 and 3.13. Every job passed. Local runs still use SQLite in memory unless `FINLUME_TEST_DB_ENGINE=postgresql` is set. |
+| FA-04, A1 (D-01) | Python floor raised to 3.12: `requires-python`, Ruff and mypy targets, locks re-compiled with `--python-version 3.12`, and a CI matrix of 3.12 and 3.13. The re-lock dropped only the 3.10-only pins. The local `.venv` was recreated on Python 3.13.17. All gates pass (126 tests), and the dev `pip-audit` is clean. Ruff's py312 rules turned `LineItem` and `IssueCode` into `StrEnum`. Their values and `.value` behaviour are unchanged, and `str()` now returns the value. |
+| FA-12, A10 | CI is green. `.github/dependabot.yml` was added for pip, both npm apps and GitHub Actions. The actions moved to their Node 24 majors (`checkout@v5`, `setup-python@v6`, `setup-node@v5`) after the first run warned that Node 20 is deprecated. **Still open:** SHA-pinning the actions, and the repository settings (branch protection on `main`, private vulnerability reporting, Dependabot alerts, secret scanning). |
+| A3 (FA-07), A5 (FA-20), A6 (FA-19), A9 (FA-08) | Decided in [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md): `401` with a `Session` challenge, email sign-in, an 8-hour sliding session, and built-in login throttles (5/minute per IP and per email). Implementation is part of step 1. |
+| A7 (FA-26) | The app is named `workspaces`. |
+| A8 (D-07) | The retention defaults in [DATA_LIFECYCLE §7](../data/DATA_LIFECYCLE_AND_RETENTION.md#7-retention-periods) are approved. |
+| Still open | A2 (FA-02, before step 2), A4 (FA-10, before step 3) and A12 (before announcing the repository). |

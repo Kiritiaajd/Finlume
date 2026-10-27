@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import Enum
+from enum import Enum, StrEnum
 
 from domain.financial_statements import LineItem
 
@@ -12,7 +12,7 @@ class Severity(Enum):
     ERROR = "error"  # input cannot be analysed until corrected
 
 
-class IssueCode(str, Enum):
+class IssueCode(StrEnum):
     """Stable, machine-readable issue codes (persisted and exposed via the API)."""
 
     MISSING_INPUT = "missing_input"

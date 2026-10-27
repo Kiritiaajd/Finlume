@@ -55,8 +55,15 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
 - `python manage.py dbstatus`: a read-only command that shows the configured database (never the password), checks it is reachable and supported, and lists pending migrations. The dev launchers run it before starting: they refuse an unreachable or misconfigured database and warn about pending migrations.
 - `FINLUME_TEST_DB_ENGINE` selects the test database independently of development. CI sets it to PostgreSQL, and `FINLUME_REQUIRE_POSTGRES_TESTS` makes pytest fail outright if it would run on anything else.
 
+- `.github/dependabot.yml`: weekly update pull requests for the backend (pip), the web client (npm) and GitHub Actions, and security updates only for the mobile client. Django and its type stubs stay on their current LTS lines.
+- ADR-0007, *Authentication, sessions and login protection for the MVP*: `401` with a `Session` challenge for unauthenticated requests, email sign-in, sessions that expire after 8 hours of inactivity, and built-in login throttles (5/minute per IP and per email). It is to be implemented in MVP step 1.
+- The approved retention defaults (D-07) and the `workspaces` app name (FA-26) are recorded in the architecture decisions.
+
 ### Changed
 
+- **Python 3.12 is now the minimum** (was 3.10, which reaches end of life in October 2026). `requires-python`, the Ruff and mypy targets, and the lock files now use 3.12. CI tests 3.12 and 3.13. The re-lock only dropped the pins for Python below 3.11, which removes the development-only `filelock` 4.1.0 advisory. **Recreate an existing `.venv`** on 3.12 or 3.13 ([Local setup](docs/development/LOCAL_SETUP.md#python-versions)).
+- `LineItem` and `IssueCode` are now `StrEnum`. Their values are unchanged, and `str(member)` now returns the value. Engine output is unchanged, so `ENGINE_VERSION` stays 0.1.0.
+- CI actions moved to their Node 24 majors: `actions/checkout@v5`, `actions/setup-python@v6` and `actions/setup-node@v5`.
 - **Development now defaults to PostgreSQL.** Missing `POSTGRES_*` settings stop startup with one message listing all of them, and there is no automatic SQLite fallback. SQLite requires an explicit `FINLUME_DB_ENGINE=sqlite` and triggers warning `finlume.W001`. Production settings are unchanged.
 - The Docker Compose development database and `.env.example` use host port **55432**, clear of PostgreSQL servers commonly installed on 5432/5433.
 

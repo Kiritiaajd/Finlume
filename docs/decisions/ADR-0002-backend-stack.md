@@ -37,5 +37,17 @@ The backend needs mature authentication, an admin interface, migrations, a well-
 
 ## Revisit when
 
-- **Decision required now:** raise `requires-python` to `>=3.12` once contributors have Python 3.12+. This drops 3.10 (EOL), clears the dev-tool advisory, and allows Django 6.x LTS planning.
+- ~~**Decision required now:** raise `requires-python` to `>=3.12` once contributors have Python 3.12+.~~ Done on 2026-10-27; see below.
 - Django 5.2 approaches end of support (April 2028).
+- Django 6.x LTS is released: plan the upgrade, now that the Python floor allows it.
+
+## Update 2026-10-27: Python floor raised to 3.12
+
+Following the policy above, foundation audit decision A1 (FA-04) was carried out in its own pull request:
+
+- `requires-python = ">=3.12"`, Ruff `target-version = "py312"`, mypy `python_version = "3.12"`.
+- The locks were re-compiled with `--python-version 3.12`. Only the pins for Python below 3.11 were dropped, so no package version changed for 3.11 and newer. The development-only `filelock` 4.1.0 advisory is gone, and the dev `pip-audit` is clean.
+- The CI matrix is `3.12` (oldest supported) and `3.13` (newest targeted).
+- The primary development environment is Python 3.13.17.
+
+The stack decision itself is unchanged: Django stays on the 5.2 LTS line.

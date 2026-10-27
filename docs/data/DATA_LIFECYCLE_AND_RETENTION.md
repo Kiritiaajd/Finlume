@@ -2,9 +2,9 @@
 
 How Finlume creates, changes, exports and deletes data, and how long it keeps data.
 
-> **Status.** The retention periods below are **proposed defaults** (unresolved decision
-> D-07 in the [product scope](../product/PRODUCT_SCOPE.md#10-unresolved-decisions)) and
-> need maintainer approval. None of the deletion or export features described here are
+> **Status.** The retention periods below are the **approved defaults** (decision D-07 in
+> the [product scope](../product/PRODUCT_SCOPE.md#10-unresolved-decisions), approved
+> 2026-10-27). None of the deletion or export features described here are
 > implemented yet. They are MVP requirements (FR-054, FR-055, NFR-022). Self-hosters
 > control their own instance and can change any period.
 
@@ -67,7 +67,7 @@ Exports are generated on request, streamed to the user, and not kept on the serv
 ### 6.1 Workspace deletion (MVP, FR-055)
 
 - Only an owner can request it. The owner must re-enter the workspace name to confirm.
-- **Proposed:** an optional grace period of **30 days**, configurable and possibly 0. During the grace period the workspace is locked (read-only, hidden from lists) and the deletion can be cancelled.
+- A grace period of **30 days** by default, configurable and possibly 0. During the grace period the workspace is locked (read-only, hidden from lists) and the deletion can be cancelled.
 - When the grace period ends (or immediately if it is 0), a service operation deletes everything inside one database transaction, in dependency order: reports → analysis results and runs → facts → raw rows → statements → source documents → entities → memberships → workspace.
 - Private files are deleted after the transaction commits (`transaction.on_commit`). If deleting a file fails, it is logged by storage key (never by content) and retried by a cleanup command, so orphaned files cannot accumulate silently.
 - A `workspace.deleted` audit event is recorded without the workspace's financial content.
@@ -85,7 +85,7 @@ report references, and reports. `RESTRICT` foreign keys stop deletions that woul
 provenance chain. The API returns a `409` with the blocking references, and does not cascade
 silently.
 
-## 7. Retention periods (proposed defaults)
+## 7. Retention periods
 
 | Data | Default retention | Configurable by self-hosters | Notes |
 |------|-------------------|------------------------------|-------|
@@ -95,7 +95,7 @@ silently.
 | Application logs | 30 days | Yes (log infrastructure) | Logs must not contain financial values |
 | Database and storage backups | Age out within 35 days | Yes | Deleted data therefore disappears from backups within 35 days. This is disclosed to users |
 | Generated exports | Not stored | — | Streamed only |
-| Sessions | Django default (2 weeks), cleared with `clearsessions` | Yes | |
+| Sessions | 8 hours of inactivity, sliding ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md), from MVP step 1); expired rows cleared with `clearsessions` | Yes | Django's default of 2 weeks applies until step 1 |
 
 ## 8. Logging and observability boundaries
 

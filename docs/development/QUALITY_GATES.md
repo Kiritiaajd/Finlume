@@ -33,7 +33,7 @@ The full strategy is in [TESTING_STRATEGY](../architecture/TESTING_STRATEGY.md).
 ## Database used by tests
 
 - The test database is chosen by `FINLUME_TEST_DB_ENGINE`, independently of the development database (`FINLUME_DB_ENGINE`). Local runs default to SQLite in memory. With `FINLUME_TEST_DB_ENGINE=postgresql` they use the `POSTGRES_*` server, creating and dropping `test_<POSTGRES_DB>`.
-- CI runs the suite on PostgreSQL 17 for Python 3.10 and 3.13 (`FINLUME_TEST_DB_ENGINE=postgresql`), and **a PR is green only if the PostgreSQL run passes**. `FINLUME_REQUIRE_POSTGRES_TESTS=1` makes pytest refuse to run there on any other database.
+- CI runs the suite on PostgreSQL 17 for Python 3.12 and 3.13 (`FINLUME_TEST_DB_ENGINE=postgresql`), and **a PR is green only if the PostgreSQL run passes**. `FINLUME_REQUIRE_POSTGRES_TESTS=1` makes pytest refuse to run there on any other database.
 - Tests that depend on PostgreSQL-specific behaviour must be marked `@pytest.mark.postgres`.
 
 ## Security checks
@@ -43,7 +43,7 @@ The full strategy is in [TESTING_STRATEGY](../architecture/TESTING_STRATEGY.md).
 - `python manage.py check --deploy` (run with production settings and real environment values) must report nothing except deliberate, documented exceptions. Today the only exception is `security.W004` (HSTS), which operators enable once HTTPS is confirmed.
 - Tests assert that error responses never leak internal exception text.
 
-## Current baseline (2026-10-25, Windows, Python 3.10.7)
+## Current baseline (2026-10-27, Windows, Python 3.13.17)
 
 | Gate | Result |
 |------|--------|
@@ -51,12 +51,12 @@ The full strategy is in [TESTING_STRATEGY](../architecture/TESTING_STRATEGY.md).
 | mypy (strict) | No issues in 69 source files |
 | `manage.py check` | No issues |
 | `makemigrations --check` | No changes |
-| pytest | 126 passed, 0 skipped, 90 % branch coverage (SQLite; PostgreSQL run pending) |
+| pytest | 126 passed, 0 skipped, 90 % branch coverage (SQLite locally; PostgreSQL 17 in CI) |
 | pip-audit, runtime | No known vulnerabilities |
-| pip-audit, dev on Python 3.10 | `filelock` 4.1.0 advisories. The package is development-only and transitive (via pip-audit), and its fix needs Python ≥ 3.11. Not present on the 3.13 CI audit. |
+| pip-audit, dev | No known vulnerabilities |
 | `check --deploy` | `security.W004` only, by design |
 
-The PostgreSQL CI run has not executed yet. It will run on the first push to GitHub.
+CI has run on GitHub, and every job passed, including the PostgreSQL test runs.
 
 ## Frontend gates
 

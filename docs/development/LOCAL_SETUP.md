@@ -8,17 +8,16 @@ their own setup: see [Frontend applications](FRONTEND.md).
 | Tool | Version | Notes |
 |------|---------|-------|
 | Git | any recent | |
-| Python | **3.12 or 3.13 recommended**; 3.10 minimum | See [Python versions](#python-versions). |
+| Python | **3.12 or 3.13** | See [Python versions](#python-versions). |
 | PostgreSQL | 14 or newer | The development database. Run it with Docker Compose (§3a) or use your own server (§3b). |
 | Docker (optional) | Docker Desktop or Engine with Compose v2 | Only for the Compose PostgreSQL option. |
 | Node.js (frontends only) | `^22.13` or `>=24`, with npm 10+ | For `apps/web` and `apps/mobile`; not needed for the backend. |
 
 ## Python versions
 
-- The backend declares `requires-python = ">=3.10"`, and CI tests on **3.10 and 3.13**.
-- Python 3.10 reaches end-of-life in **October 2026**. It is supported only so that existing local environments keep working. Use 3.12 or 3.13 for new environments.
-- Raising the minimum to 3.12 is an open decision; see [ADR-0002](../decisions/ADR-0002-backend-stack.md). Raising it would also allow upgrading to Django 6.x.
-- On Python 3.10, `pip-audit` reports advisories against `filelock` 4.1.0. This is a development-only, transitive dependency whose fixed release needs Python ≥ 3.11. Runtime dependencies have no known vulnerabilities.
+- The backend declares `requires-python = ">=3.12"`, and CI tests on **3.12 and 3.13** ([ADR-0002](../decisions/ADR-0002-backend-stack.md#update-2026-10-27-python-floor-raised-to-312)).
+- Python 3.10 and 3.11 are not supported. An existing `.venv` built on them must be recreated (step 1).
+- If no suitable interpreter is installed, [uv](https://docs.astral.sh/uv/) can provide one without administrator rights: `uv python install 3.13`, then `uv venv .venv --python 3.13 --seed` from the repository root.
 
 ## 1. Create and activate the virtual environment
 
@@ -259,8 +258,8 @@ Dependencies are declared in [`backend/pyproject.toml`](../../backend/pyproject.
 
 ```powershell
 # in backend/, after editing pyproject.toml
-python -m uv pip compile pyproject.toml --universal --python-version 3.10 --generate-hashes -o requirements/base.txt
-python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.10 --generate-hashes -o requirements/dev.txt
+python -m uv pip compile pyproject.toml --universal --python-version 3.12 --generate-hashes -o requirements/base.txt
+python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.12 --generate-hashes -o requirements/dev.txt
 python -m pip install --require-hashes -r requirements/dev.txt
 ```
 

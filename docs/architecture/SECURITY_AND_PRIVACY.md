@@ -191,6 +191,7 @@ defaults and startup checks; the operator is responsible for:
 
 - **Locked dependencies:** pinned, hash-verified lock files are generated from `backend/pyproject.toml` with `uv pip compile` and installed with `pip --require-hashes` ([ADR-0004](../decisions/ADR-0004-dependency-management.md)). **Implemented.**
 - **Dependency audit:** `pip-audit` runs in CI for runtime and development dependencies, and locally through `scripts/check.ps1` / `scripts/check.sh`. Example: DRF was upgraded from 3.16.1 to 3.18.3 after `pip-audit` flagged CVEs fixed in 3.18.2. **Implemented.**
-- **Known exception:** `filelock` 4.1.0 is a development-only, transitive dependency of `pip-audit` and has advisories on **Python 3.10 only**. The fixed release requires Python 3.11 or newer, so raising the Python floor to 3.12 resolves it. **Open decision.**
+- **Known exceptions:** none. The development-only `filelock` 4.1.0 advisory (Python 3.10 only) was resolved on 2026-10-27, when the Python floor was raised to 3.12.
+- **Update pull requests:** Dependabot proposes weekly version updates for the backend, web client and GitHub Actions, and security updates only for the mobile client (`.github/dependabot.yml`). **Configured.** Dependabot alerts must also be enabled in the repository settings.
 - **Static security checks:** Ruff's bandit-derived `S` rules run in CI. **Implemented.**
 - **Workflow permissions:** CI uses `permissions: contents: read`. **Implemented.**

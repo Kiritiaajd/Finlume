@@ -10,7 +10,7 @@ are signed: losses, negative equity and cash outflows are negative.
 
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum, StrEnum
 
 
 class StatementType(Enum):
@@ -19,7 +19,7 @@ class StatementType(Enum):
     CASH_FLOW = "cash_flow"
 
 
-class LineItem(str, Enum):
+class LineItem(StrEnum):
     # Income statement (flows over the period)
     REVENUE = "revenue"
     COST_OF_REVENUE = "cost_of_revenue"

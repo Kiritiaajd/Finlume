@@ -157,6 +157,7 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
 - **Python 3.12 is now the minimum** (was 3.10, which reaches end of life in October 2026). `requires-python`, the Ruff and mypy targets, and the lock files now use 3.12. CI tests 3.12 and 3.13. The re-lock only dropped the pins for Python below 3.11, which removes the development-only `filelock` 4.1.0 advisory. **Recreate an existing `.venv`** on 3.12 or 3.13 ([Local setup](docs/development/LOCAL_SETUP.md#python-versions)).
 - `LineItem` and `IssueCode` are now `StrEnum`. Their values are unchanged, and `str(member)` now returns the value. Engine output is unchanged, so `ENGINE_VERSION` stays 0.1.0.
 - CI actions moved to their Node 24 majors: `actions/checkout@v5`, `actions/setup-python@v6` and `actions/setup-node@v5`.
+- The web client is back on **TypeScript 6.0** (`~6.0.3`). The TypeScript 7.0.2 update broke `npm ci` with `ERESOLVE`, because `typescript-eslint` 8, including its latest release, supports only `typescript <6.1.0`. Dependabot now skips TypeScript 6.1 and later until `typescript-eslint` supports them.
 - **Development now defaults to PostgreSQL.** Missing `POSTGRES_*` settings stop startup with one message listing all of them, and there is no automatic SQLite fallback. SQLite requires an explicit `FINLUME_DB_ENGINE=sqlite` and triggers warning `finlume.W001`. Production settings are unchanged.
 - The Docker Compose development database and `.env.example` use host port **55432**, clear of PostgreSQL servers commonly installed on 5432/5433.
 

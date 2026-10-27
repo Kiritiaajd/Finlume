@@ -1,6 +1,6 @@
 # ADR-0008: Organizations and workspace tenancy
 
-- **Status:** Proposed. Awaiting maintainer approval
+- **Status:** Proposed. Accepted
 - **Date:** 2026-10-27
 - **Implementation plan:** [TENANCY_IMPLEMENTATION_PLAN](../development/TENANCY_IMPLEMENTATION_PLAN.md)
 

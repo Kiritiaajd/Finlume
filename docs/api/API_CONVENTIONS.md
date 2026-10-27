@@ -21,7 +21,7 @@ The Finlume web and mobile clients consume the same versioned REST API, served b
 - Identifiers in URLs and payloads are the resource's `public_id` (UUID). Sequential database keys are never exposed.
 - **Every tenant resource is addressed under the workspace that owns it**, for example `/api/v1/workspaces/{public_id}/statements/`. The workspace is resolved and authorised once per request, and every queryset is filtered by it, so one resolver protects every endpoint ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) §6). Children nest at most one more level: `/api/v1/workspaces/{public_id}/statements/{public_id}/line-items/`.
 - Non-tenant resources (`auth/`, `me/`, `organizations/`) are top-level.
-- Actions that do not map to CRUD use a verb sub-resource with `POST`, for example `POST /api/v1/workspaces/{public_id}/entities/{public_id}/analyses/` (body: the reporting period) to run an analysis. An analysis spans all statement types for one entity and period, so it hangs off the entity, not a single statement ([FOUNDATION_AUDIT FA-02](../architecture/FOUNDATION_AUDIT.md#fa-02--no-rule-for-assembling-one-fact-set-from-separate-statements-needs-approval)).
+- Actions that do not map to CRUD use a verb sub-resource with `POST`, for example `POST /api/v1/workspaces/{public_id}/entities/{public_id}/analyses/` (body: the reporting period) to run an analysis. An analysis spans all statement types for one entity and period, so it hangs off the entity, not a single statement ([FOUNDATION_AUDIT FA-02](../architecture/FOUNDATION_AUDIT.md#fa-02--no-rule-for-assembling-one-fact-set-from-separate-statements-approved)).
 - Trailing slashes are required, which is Django's default.
 
 ## Payloads

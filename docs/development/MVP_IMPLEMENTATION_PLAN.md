@@ -51,7 +51,7 @@ Its acceptance criteria and query budgets are in that plan, §4 and §8.
 Delivered as two PRs:
 
 - **2a** (*implemented 2026-10-27*): both apps, the five models, migrations, constraints, the read-only admin and their tests.
-- **2b:** the mapping layer and the assembly rule.
+- **2b** (*implemented 2026-10-27*): the mapping layer and the assembly rule, in `services/statement_analysis/`.
 
 - **Apps:** `financial_records` (`ReportingEntity`, `FinancialStatement`, `StatementLineItem`, `FinancialFact`) and `documents` (`SourceDocument`; only `manual_entry` in this step).
 - **Constraints, per DATA_MODEL:**
@@ -61,8 +61,8 @@ Delivered as two PRs:
   - `CHECK (version = 1) = (supersedes IS NULL)`;
   - a currency format CHECK;
   - `UNIQUE(statement, line_item)` on facts.
-- **Mapping layer:** in `services/statement_analysis/`, turn persisted facts into `FinancialFactSet` and back. The domain never sees ORM objects.
-- **Assembly rule (A2):** one analysis input = the latest validated, non-superseded statement of each type for (`entity`, `period_start`, `period_end`, `period_type`), all in one currency.
+- **Mapping layer:** in `services/statement_analysis/`, turn persisted facts into `FinancialFactSet` (`assemble_analysis_input`), and a statement's raw rows into the facts to store (`build_facts`: exact scaling, no fact for a blank cell, a code only on its own statement type). The domain never sees ORM objects.
+- **Assembly rule (A2, approved 2026-10-27):** one analysis input = the validated statement of each type for (`entity`, `period_start`, `period_end`, `period_type`), confirmed facts only, all in one currency. A missing statement type is allowed; mixed currencies or no validated statement are refused with `409 conflict`.
 - **Acceptance:**
   - Migration tests on **PostgreSQL**.
   - Constraint tests: duplicate current version rejected, mixed-currency assembly rejected, a balance sheet combines with the income statement for the same period.

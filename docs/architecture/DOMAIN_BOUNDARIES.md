@@ -164,7 +164,7 @@ responsibility with a clear boundary, not a separate process.
 | `accounts` | Registration and personal-workspace provisioning | `accounts`, `workspaces`, `audit` | Scaffolded (step 1b) |
 | `organizations` | Organization lifecycle and membership | `organizations`, `workspaces`, `audit` | Implemented (step 1d) |
 | `workspaces` | Workspace lifecycle, roles and ownership recovery | `workspaces`, `audit` | Scaffolded (step 1c) |
-| `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | MVP steps 2–5 |
+| `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | Started in step 2b (`assemble_analysis_input`, `build_facts`); the rest in MVP steps 3–5 |
 | `documents` | Document intake (private storage, fingerprinting) and, in Phase 2, extraction with human review | `documents` | MVP step 4 (intake); Phase 2 (extraction) |
 | `stock_research` | Company research, market data, valuation | `investments`, `market_data`, `infrastructure/providers` | Phase 5 |
 | `portfolio_analysis` | Holdings, returns, risk and allocation | `investments` | Phase 5 |

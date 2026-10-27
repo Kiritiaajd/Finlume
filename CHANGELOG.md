@@ -127,6 +127,11 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - On PostgreSQL, composite foreign keys (`financial_records.0002` and `0003`) keep a statement's entity, source document and restated version in its workspace, keep each fact's workspace, entity, period and currency equal to its statement's, and tie each fact to a mapped row of its own statement.
   - Read-only admin for the five models.
 
+- **Statement mapping and assembly (MVP step 2b, rule A2 approved):** `services/statement_analysis/`, the first financial capability. No API yet; step 3 and step 5 call it.
+  - `assemble_analysis_input(entity=…, period=…)` builds the engine's `FinancialFactSet` for one entity and period, from the **validated** version of each statement type and its **confirmed** facts, in two queries. Drafts, superseded versions, other periods, period types, entities and workspaces are never used. A missing statement type is allowed, and the engine reports its ratios as `missing_input`. It also returns the exact statements and facts used, for step 5's run records.
+  - Statements in different currencies, or no validated statement for the period, are refused with `ConflictError` (`409 conflict`), naming the currency codes but no amounts.
+  - `build_facts(statement, review_status=…)` turns a statement's mapped raw rows into unsaved facts in base units, scaled exactly with `domain.financial_statements.normalize_amount`. Unmapped rows and blank cells give no fact, signs are never flipped, a code from another statement type is refused, and so is a value too large for `numeric(30,6)` once scaled (FA-15).
+
 ### Changed
 
 - **Unauthenticated API requests now get `401`** with `WWW-Authenticate: Session`, instead of `403`. Signed-in users without permission, and CSRF failures, still get `403`.

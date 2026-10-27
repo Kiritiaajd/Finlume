@@ -41,7 +41,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 | ID | Severity | Area | Finding | Status |
 |---|---|---|---|---|
 | FA-01 | High | Engine | Ratio computation raised on very large quotients | **Fixed** |
-| FA-02 | High | Data model | No rule for assembling one fact set from separate statements | **Needs approval** |
+| FA-02 | High | Data model | No rule for assembling one fact set from separate statements | **Approved** and implemented in step 2b ([§11](#11-follow-up-2026-10-27)) |
 | FA-03 | High | PostgreSQL | No test has ever run on PostgreSQL | **Resolved** in CI ([§11](#11-follow-up-2026-10-27)) |
 | FA-04 | High | Python | Python 3.10 reaches end of life this month | **Fixed** ([§11](#11-follow-up-2026-10-27)) |
 | FA-05 | Medium | Data model | Planned `PROTECT` keys would block workspace and user deletion | **Fixed** (design docs) |
@@ -66,7 +66,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 - **Fix applied:** `precision.MAX_RESULT_ABS = Decimal("1E+18")`. `compute_ratio` catches `Overflow`, checks the magnitude before quantising and again after (rounding can carry `999…999.9999995` up to the bound), and returns `value=None` with the new `IssueCode.RESULT_OUT_OF_RANGE`. The conventions doc and changelog are updated. `ENGINE_VERSION` stays `0.1.0`, because it has never been released and no result has ever been persisted (policy clarified in [the conventions, §10](../data/FINANCIAL_CALCULATION_CONVENTIONS.md#10-reproducibility-and-versioning)).
 - **Acceptance (met):** `test_out_of_range_results_are_reported_not_raised` (5 cases, including the rounding-up and context-overflow cases) and `test_largest_storable_result_is_kept` pass.
 
-### FA-02 — No rule for assembling one fact set from separate statements (Needs approval)
+### FA-02 — No rule for assembling one fact set from separate statements (Approved)
 
 - **Evidence:** [DATA_MODEL §4.6](../data/DATA_MODEL.md#46-financialstatement-implemented) stores one `FinancialStatement` per statement type, each with its own `period_start`, `period_end` and `currency`. §6 says "an analysis combines facts with identical period bounds only". Nothing says what `period_start` a balance sheet carries, because a balance sheet is a position at a date. The engine's `FinancialFactSet` takes exactly one `ReportingPeriod` and one `Currency` (`domain/financial_statements/facts.py`).
 - **Impact:** if a balance sheet were stored with `period_start = period_end`, it would never combine with the income statement. Return on equity, return on assets and every other cross-statement ratio would then always be "missing input", and FR-030 could not be met for persisted analyses.
@@ -297,4 +297,5 @@ sections above are left as they were found on 2026-10-25.
 | A7 (FA-26) | The app is named `workspaces`. The proposed ADR-0008 also brings `Organization` (in `organizations`) into MVP step 1, as the customer boundary. |
 | §7 open question (can a business workspace outlive every owner?) | Answered by the proposed ADR-0008: no. The last owner cannot leave until ownership is transferred, and recovery after every owner is deactivated is an audited, operator-only command. |
 | A8 (D-07) | The retention defaults in [DATA_LIFECYCLE §7](../data/DATA_LIFECYCLE_AND_RETENTION.md#7-retention-periods) are approved. |
-| Still open | A2 (FA-02, before step 2), A4 (FA-10, before step 3) and A12 (before announcing the repository). |
+| A2 (FA-02) | The recommended default is approved (2026-10-27) and implemented in step 2b as `services.statement_analysis.assemble_analysis_input`. Only `confirmed` facts are used. A missing statement type is allowed, and the engine reports its ratios as `missing_input`. Mixed currencies, or no validated statement for the period, are refused with `ConflictError` (`409 conflict`). Point 4 (a code only within its own statement type) is enforced when raw rows become facts (`build_facts`) and again during assembly. |
+| Still open | A4 (FA-10, before step 3) and A12 (before announcing the repository). |

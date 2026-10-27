@@ -25,8 +25,10 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 | Entity | Planned app | Status | Purpose |
 |--------|-------------|--------|---------|
 | `User` | `accounts` | **Implemented** | Authentication identity |
-| `Workspace` | `organizations` | MVP | Tenancy and permission boundary (personal or business) |
-| `Membership` | `organizations` | MVP | User's role in a workspace |
+| `Organization` | `organizations` | MVP | Customer boundary; owns organization workspaces |
+| `OrganizationMembership` | `organizations` | MVP | User's role in an organization (`admin` or `member`) |
+| `Workspace` | `workspaces` | MVP | Tenancy and permission boundary: a user's personal workspace, or an organization workspace |
+| `WorkspaceMembership` | `workspaces` | MVP | User's role in a workspace; the only source of workspace access |
 | `ReportingEntity` | `financial_records` | MVP | The business, person or company whose statements are analysed |
 | `SourceDocument` | `documents` | MVP | Where figures came from: manual entry session or uploaded file |
 | `FinancialStatement` | `financial_records` | MVP | One statement for one entity, one period, one version |
@@ -37,7 +39,7 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 | `AnalysisIssue` | `analysis` | MVP | A validation or calculation issue produced by a run |
 | `Report` | `reports` | MVP | A saved, titled view of one or more analysis runs |
 | `AuditEvent` | `audit` | MVP | Who did what, when; contains no financial values |
-| `Organization` | `organizations` | Future | Groups several business workspaces (for example, a group of companies) |
+| `Team`, `TeamMembership` | `organizations` | Future | Manage workspace memberships for a group ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) §5) |
 | `ExtractionCandidate` | `ingestion` | Future (Phase 2) | A value extracted from a PDF, awaiting human review |
 | `ExplanationRecord` | `explanations` | Future (Phase 3) | An AI explanation and the stored results it cites |
 | Personal finance entities | `personal_finance` | Future (Phase 4) | `Account`, `Transaction`, `Category`, `Budget` |
@@ -47,8 +49,12 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 
 ```mermaid
 erDiagram
-    USER ||--o{ MEMBERSHIP : has
-    WORKSPACE ||--o{ MEMBERSHIP : grants
+    USER ||--o{ ORGANIZATION_MEMBERSHIP : has
+    ORGANIZATION ||--o{ ORGANIZATION_MEMBERSHIP : grants
+    ORGANIZATION ||--o{ WORKSPACE : "owns (organization workspace)"
+    USER |o--o| WORKSPACE : "owns (personal workspace)"
+    USER ||--o{ WORKSPACE_MEMBERSHIP : has
+    WORKSPACE ||--o{ WORKSPACE_MEMBERSHIP : grants
     WORKSPACE ||--o{ REPORTING_ENTITY : contains
     WORKSPACE ||--o{ SOURCE_DOCUMENT : owns
     REPORTING_ENTITY ||--o{ FINANCIAL_STATEMENT : reports
@@ -90,29 +96,58 @@ App `accounts`, table `accounts_user`. Extends Django's `AbstractUser`.
 Ownership: a user owns no financial data directly. Data belongs to workspaces, and users act
 on it through memberships.
 
-### 4.2 Workspace (MVP)
+### 4.2 Organization and OrganizationMembership (MVP)
 
-The tenancy and permission boundary. For the MVP it replaces a separate
-"organization" concept. A future `Organization` may group several business workspaces.
+The customer boundary ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)).
+Any signed-in user may create an organization and becomes its admin. **Organization
+membership never grants access to workspace data**, not even for admins.
+
+`Organization`:
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `name` | varchar(200) | |
-| `kind` | varchar(16) | `personal` or `business` (CHECK) |
-| `base_currency` | char(3), nullable | Default currency for new statements; display only, no conversion |
-| `personal_owner` | FK → User, `CASCADE`, nullable, unique | Set only for personal workspaces |
-| `created_by` | FK → User, `SET NULL` | |
+| `created_by` | FK → User, `SET NULL`, nullable | |
 
-Constraints: each user has at most one personal workspace (`personal_owner` is `UNIQUE`), and
-`CHECK ((kind = 'personal') = (personal_owner IS NOT NULL))`. The personal workspace is
-created together with the user account.
+`OrganizationMembership`:
 
-**Why one table for personal and business workspaces?** Tenancy, membership and audit rules
-are the same for both. The domain data they hold differs and lives in separate tables (for
-example, personal-finance transactions in Phase 4 never share a table with business
-statements).
+| Field | Type | Notes |
+|-------|------|-------|
+| `organization` | FK → Organization, `CASCADE` | |
+| `user` | FK → User, `CASCADE` | |
+| `role` | varchar(16) | `admin` or `member` (CHECK) |
 
-### 4.3 Membership (MVP)
+Constraints: `UNIQUE (user, organization)`, which also serves "my organizations". Application
+logic keeps at least one admin.
+
+| Organization role | Manage organization and its members | Create a workspace in it | Read its workspaces |
+|---|---|---|---|
+| member | | ✓ (becomes owner) | only through workspace membership |
+| admin | ✓ | ✓ (becomes owner) | only through workspace membership |
+
+Status, settings and teams are deliberately absent until a feature needs them.
+
+### 4.3 Workspace and WorkspaceMembership (MVP)
+
+The tenancy and permission boundary for all financial data. A workspace is either a user's
+**personal workspace** (exactly one per user, created at registration, never shared) or an
+**organization workspace**.
+
+`Workspace`:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `name` | varchar(200) | |
+| `organization` | FK → Organization, `CASCADE`, nullable | Set for organization workspaces |
+| `personal_owner` | FK → User, `CASCADE`, nullable, unique | Set for personal workspaces |
+| `created_by` | FK → User, `SET NULL`, nullable | |
+| `base_currency` | char(3), nullable | Default currency for new statements; display only, no conversion. Added in MVP step 3 |
+
+Constraints: `personal_owner` is `UNIQUE`, and
+`CHECK ((organization IS NULL) <> (personal_owner IS NULL))`: exactly one of the two is set.
+The kind is derived from which link is set, so there is no `kind` column that could disagree.
+
+`WorkspaceMembership`:
 
 | Field | Type | Notes |
 |-------|------|-------|
@@ -120,14 +155,27 @@ statements).
 | `user` | FK → User, `CASCADE` | |
 | `role` | varchar(16) | `owner`, `editor` or `viewer` (CHECK) |
 
-Constraints: `UNIQUE (workspace, user)`. Application logic ensures that at least one owner
-always remains. Index: `(user, workspace)` for "my workspaces" lookups.
+Constraints: `UNIQUE (user, workspace)`. This is the index behind the per-request access
+check. Django's FK index on `workspace` serves member lists.
+
+Invariants kept by the application layer, inside transactions
+([tenancy plan §3](../development/TENANCY_IMPLEMENTATION_PLAN.md#invariants-enforced-in-use-cases-and-covered-by-tests)):
+
+- A personal workspace has exactly one member, its owner.
+- A user is a member of an organization workspace only while they are a member of that organization.
+- Every workspace keeps at least one owner.
+- Creating a workspace makes its creator the owner in the same transaction.
 
 | Role | Read | Create/edit statements and runs | Manage members | Delete workspace |
 |------|------|---------------------------------|----------------|------------------|
 | viewer | ✓ | | | |
 | editor | ✓ | ✓ | | |
-| owner | ✓ | ✓ | ✓ | ✓ |
+| owner | ✓ | ✓ | ✓ | ✓ (MVP step 8) |
+
+**Why one table for personal and organization workspaces?** Tenancy, membership and audit
+rules are the same for both. The domain data they hold differs and lives in separate tables
+(for example, personal-finance transactions in Phase 4 never share a table with business
+statements).
 
 ### 4.4 ReportingEntity (MVP)
 
@@ -302,7 +350,7 @@ Append-only. Never contains financial values, document contents or credentials.
 | `actor` | FK → User, `SET NULL`, nullable | Pseudonymised when the account is deleted |
 | `actor_label` | varchar(64) | A stable pseudonym, so events stay attributable after deletion |
 | `workspace` | FK → Workspace, `SET NULL`, nullable | |
-| `action` | varchar(64) | For example `statement.created`, `analysis.run`, `membership.role_changed`, `auth.login_failed` |
+| `action` | varchar(64) | For example `statement.created`, `analysis.run`, `membership.role_changed`, `organization.member_removed`, `workspace.ownership_recovered`, `auth.login_failed` |
 | `target_type` | varchar(64) | For example `financial_statement` |
 | `target_public_id` | uuid, nullable | |
 | `request_id` | varchar(64) | Matches the `X-Request-ID` response header |

@@ -25,6 +25,7 @@ context, the decision, alternatives considered, and consequences.
 | [ADR-0005](../decisions/ADR-0005-private-document-storage.md) | Private document storage | Accepted |
 | [ADR-0006](../decisions/ADR-0006-client-stack.md) | Web and mobile client stack | Accepted (direction; not yet implemented) |
 | [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md) | Authentication, sessions and login protection for the MVP | Accepted (implemented in MVP step 1) |
+| [ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) | Organizations and workspace tenancy | Proposed |
 
 ### ADR-0001 — Modular monolith
 
@@ -103,9 +104,23 @@ scoped throttles: **5 attempts per minute** per client IP and per email, with au
 for each attempt and no new dependency. The Django admin login is protected at deployment
 by a non-default path and reverse-proxy restrictions.
 
+### ADR-0008 — Organizations and workspace tenancy (proposed 2026-10-27)
+
+**Organizations** are the customer boundary, and **workspaces** are where financial work
+happens. Every user has one private personal workspace, outside any organization. Any
+organization member can create an organization workspace and becomes its owner. Access
+comes **only** from workspace membership: organization admins cannot read a workspace they
+are not a member of. One resolver authorises every request with a single indexed query,
+because organization and workspace memberships are kept synchronised. Every tenant resource
+is nested under `/workspaces/{id}/`, so non-members get `404` and members without the
+required role get `403`. Last-owner and last-admin rules are enforced in transactions.
+Recovery for workspaces whose owners are all deactivated is an audited, operator-only
+command. Teams are deferred. Plan:
+[TENANCY_IMPLEMENTATION_PLAN](../development/TENANCY_IMPLEMENTATION_PLAN.md).
+
 ### Smaller conventions decided 2026-10-27
 
-- The MVP app for workspaces and memberships is named **`workspaces`**. `organizations` is kept for a future grouping of workspaces (FA-26).
+- The MVP app for workspaces and memberships is named **`workspaces`** (FA-26). Under the proposed [ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md), `organizations` holds the `Organization` customer boundary from MVP step 1.
 - The retention defaults in [DATA_LIFECYCLE_AND_RETENTION §7](../data/DATA_LIFECYCLE_AND_RETENTION.md#7-retention-periods) are approved: a 30-day workspace deletion grace period, 1 year for audit events, 30 days for logs and 35 days for backups. All of them are configurable by self-hosters (D-07).
 
 ## Decisions pending approval

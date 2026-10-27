@@ -33,21 +33,16 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
 
 ## Step 1 — Workspace ownership and authorisation
 
-**Goal:** users sign in and act only inside workspaces they belong to (FR-001–FR-006, NFR-010).
+**Goal:** users sign in, belong to organizations, and act only inside workspaces they are members of (FR-001–FR-006, NFR-010).
 
-- **App:** `workspaces` (A7). It holds `Workspace` (kind `personal`/`business`, `personal_owner` unique, CHECK kind ↔ owner) and `Membership` (`owner`/`editor`/`viewer`, `UNIQUE(workspace, user)`).
-- **App:** `audit`, holding `AuditEvent` (append-only, no financial values, `request_id` from the request context).
-- **Package:** `backend/application/` is introduced, with `authorization.py` (`require_role(user, workspace, minimum_role)`, `workspaces_for(user)`) and the workspace use cases (create, invite, change role, remove member, transfer ownership).
-- **Endpoints:** register, login, logout, `GET me`, CSRF cookie bootstrap; `GET/POST /workspaces/`, `GET/PATCH /workspaces/{id}/`, `GET/POST /workspaces/{id}/members/`, `PATCH/DELETE /workspaces/{id}/members/{id}/`.
-- **Security** ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)): email sign-in with a non-blank email constraint; scoped login throttles, 5/minute per IP and per email; `401` with a `Session` challenge; an 8-hour sliding session; `auth.login_failed`, `auth.login`, `membership.*` audit events.
-- **Acceptance:**
-  - Registering creates exactly one personal workspace.
-  - The last owner cannot leave or be demoted.
-  - A viewer gets `403` on writes.
-  - A non-member gets `404`.
-  - The sixth failed login per minute gets `429`.
-  - Deleting a user deletes their personal workspace (FA-05).
-  - Every endpoint has role-matrix tests.
+Step 1 is specified in the **[tenancy implementation plan](TENANCY_IMPLEMENTATION_PLAN.md)**, following [ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) and [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md). It is delivered as PRs 1a–1d:
+
+- **1a:** the tenancy models (`organizations` and `workspaces` apps), the personal-workspace data migration, and the access resolver.
+- **1b:** authentication, registration and the `audit` app.
+- **1c:** the workspace API, including ownership recovery.
+- **1d:** the organization API and membership synchronisation.
+
+Its acceptance criteria and query budgets are in that plan, §4 and §8.
 
 ## Step 2 — Financial statement and normalised fact models
 
@@ -72,11 +67,12 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
 **Goal:** enter all three statements by hand, see validation warnings, and confirm (FR-011, FR-015, FR-020–FR-023).
 
 - **Endpoints:**
-  - `GET/POST /workspaces/{id}/entities/`
-  - `GET/POST /entities/{id}/statements/` (draft with line items)
-  - `PATCH` while in draft
-  - `POST /statements/{id}/validate/`: draft → validated; creates facts
-  - `POST /statements/{id}/restatements/`: new version plus reason
+  All under `/workspaces/{ws}/` ([API conventions](../api/API_CONVENTIONS.md#resources-and-urls)):
+  - `GET/POST entities/`
+  - `GET/POST entities/{id}/statements/` (draft with line items)
+  - `PATCH statements/{id}/` while in draft
+  - `POST statements/{id}/validate/`: draft → validated; creates facts
+  - `POST statements/{id}/restatements/`: new version plus reason
 - **Input validation:**
   - Decimal strings only (floats rejected).
   - At most 6 decimal places, and magnitude below 10²⁴ after normalisation (FA-15).
@@ -123,7 +119,7 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
   3. Persist the run, results (`numeric(24,6)`; values below `MAX_RESULT_ABS` by construction), issues, inputs as decimal strings, `engine_version` and fingerprint in one transaction.
   4. Write an `analysis.run` audit event.
 - **App:** `reports` (`Report` with title, notes and ordered runs).
-- **Endpoints:** `POST /entities/{id}/analyses/` (body: period), `GET /analyses/{id}/`, `GET /entities/{id}/analyses/`, and `GET/POST/PATCH /workspaces/{id}/reports/`.
+- **Endpoints**, all under `/workspaces/{ws}/`: `POST entities/{id}/analyses/` (body: period), `GET analyses/{id}/`, `GET entities/{id}/analyses/`, and `GET/POST/PATCH reports/`.
 - **Acceptance:**
   - Acceptance criteria 6 and 7.
   - Re-running unchanged inputs gives an identical fingerprint and values.
@@ -167,15 +163,14 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
   - reverse-proxy body limit;
   - `SECURE_REDIRECT_EXEMPT` or health probes over TLS, and the HSTS rollout (FA-17);
   - backup and restore guide.
-- **Workspace export and deletion** (FR-054, FR-055), with the grace period per A8. Files are deleted after the transaction commits, with a cleanup command.
+- **Workspace, organization and user export and deletion** (FR-054, FR-055), with the grace period per A8. These are the lifecycle workflows ADR-0008 §7 requires before the admin may delete tenancy data. Files are deleted after the transaction commits, with a cleanup command.
 - **Acceptance:** acceptance criteria 11 and 12. `check --deploy` is clean apart from documented HSTS staging. A restore drill is documented.
 
 ## Exact next task
 
-**Step 0, then Step 1a: the `workspaces` app with `Workspace` and `Membership` models, their
-migration, and the creation of a personal workspace at registration.** It is test-first and
-verified on PostgreSQL.
+**Accept ADR-0008 (PR 0), then PR 1a of the [tenancy plan](TENANCY_IMPLEMENTATION_PLAN.md#8-implementation-sequence):
+the `organizations` and `workspaces` models, the personal-workspace data migration and the
+access resolver.** It is test-first and verified on PostgreSQL.
 
-Decisions A7 (`workspaces`) and A5 (email sign-in) are made. The Python move (A1) is done,
-and PostgreSQL runs in CI (A11). Once this branch's CI is green on 3.12 and 3.13, the first
-real migration can be generated on the final interpreter and checked on the real database.
+Step 0's work is done: the Python move (A1), PostgreSQL in CI (A11) and the step 1
+decisions (ADR-0007, A7, A8). It is complete once its pull request is green and merged.

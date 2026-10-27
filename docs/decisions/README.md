@@ -15,6 +15,7 @@ A summary of all decisions, including smaller conventions that do not need their
 | [0005](ADR-0005-private-document-storage.md) | Private storage for uploaded financial documents | Accepted |
 | [0006](ADR-0006-client-stack.md) | Web and mobile client stack | Accepted (direction; not implemented) |
 | [0007](ADR-0007-authentication-and-sessions.md) | Authentication, sessions and login protection for the MVP | Accepted |
+| [0008](ADR-0008-organizations-and-workspace-tenancy.md) | Organizations and workspace tenancy | Proposed |
 
 ## When to write an ADR
 

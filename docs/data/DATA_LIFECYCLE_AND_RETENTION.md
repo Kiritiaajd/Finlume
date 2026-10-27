@@ -72,13 +72,21 @@ Exports are generated on request, streamed to the user, and not kept on the serv
 - Private files are deleted after the transaction commits (`transaction.on_commit`). If deleting a file fails, it is logged by storage key (never by content) and retried by a cleanup command, so orphaned files cannot accumulate silently.
 - A `workspace.deleted` audit event is recorded without the workspace's financial content.
 
-### 6.2 Account deletion
+### 6.2 Organization deletion (MVP step 8)
 
-- A user who is the only owner of a business workspace must first transfer ownership or delete that workspace.
+- Only an organization admin can request it. It applies §6.1 to every workspace of the organization, then deletes its memberships and the organization in the same transaction.
+- An `organization.deleted` audit event is recorded.
+
+### 6.3 Account deletion
+
+- A user who is the only owner of an organization workspace, or the only admin of an organization, must first transfer that role or delete the workspace or organization.
 - The user's personal workspace is deleted as in §6.1.
 - The `User` row is deleted. `created_by`, `uploaded_by` and `reviewed_by` references in other workspaces become `NULL`, and audit events keep only the stable pseudonym in `actor_label`.
 
-### 6.3 Individual records
+Until these workflows exist, the Django admin cannot delete users or tenancy records
+([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) §7).
+
+### 6.4 Individual records
 
 Editors can delete draft statements, unreferenced source documents, analysis runs that no
 report references, and reports. `RESTRICT` foreign keys stop deletions that would break the

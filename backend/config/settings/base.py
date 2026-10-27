@@ -42,6 +42,8 @@ INSTALLED_APPS = [
     "apps.organizations",
     "apps.workspaces",
     "apps.audit",
+    "apps.documents",
+    "apps.financial_records",
 ]
 
 MIDDLEWARE = [

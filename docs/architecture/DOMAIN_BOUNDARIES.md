@@ -51,11 +51,11 @@ flowchart LR
         orgs["organizations: organizations, members"]
         workspaces["workspaces: workspaces, members, access scoping (planned)"]
         audit["audit: audit events (planned)"]
-        documents["documents: private source files (planned)"]
+        documents["documents: source documents (files in step 4)"]
     end
 
     subgraph business["Business and company finance: MVP"]
-        records["financial_records: entities, statements, facts (planned)"]
+        records["financial_records: entities, statements, facts"]
         ingestion["ingestion: manual entry, CSV (planned)"]
         analysis["analysis: analysis runs, results (planned)"]
         reports["reports: saved reports (planned)"]
@@ -95,7 +95,7 @@ flowchart LR
     ai -.-> analysis
 
     classDef planned stroke-dasharray: 5 5
-    class orgs,workspaces,audit,documents,records,ingestion,analysis,reports,personal,investments,ai planned
+    class orgs,workspaces,audit,ingestion,analysis,reports,personal,investments,ai planned
 ```
 
 Arrows point from a module to what it depends on. Dashed modules do not exist yet.
@@ -111,9 +111,9 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 | `accounts` | **Implemented** | Custom `User` model (`public_id`, case-insensitive unique email). It had to exist before the first migration. | — |
 | `organizations` | **Implemented** (models and API) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
 | `workspaces` | **Implemented** (models, backfill, API and the `recover_workspace_owner` command) | `Workspace` (personal or organization; the tenancy boundary), `WorkspaceMembership` (owner, editor, viewer) and `api/scoping.py`, the one helper every tenant view inherits | MVP step 1a |
-| `financial_records` | Planned (Phase 1) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact` | Manual statement entry |
+| `financial_records` | **Implemented** (models and read-only admin; API in step 3) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact`, and the PostgreSQL composite keys that keep them in one workspace | MVP step 2a |
 | `ingestion` | Conditional (Phase 1) | Only tables for import batches and row errors, if needed. The import workflow itself lives in `services/statement_analysis` and `services/documents` (§3.3) | CSV upload, if import batches need persisting |
-| `documents` | Planned (Phase 1, minimal) | `SourceDocument` metadata (kind, SHA-256, private storage key) | First stored upload (the CSV file kept for provenance) |
+| `documents` | **Implemented** (minimal: `manual_entry` only) | `SourceDocument` metadata. The file columns (SHA-256, private storage key) arrive with the first stored upload, the CSV file kept for provenance (step 4) | MVP step 2a |
 | `analysis` | Planned (Phase 1) | `AnalysisRun` (immutable), `MetricResult`, `AnalysisIssue` | Persisting an engine run |
 | `reports` | Planned (Phase 1; a separate app only if reports need their own persistence and endpoints) | `Report`: a saved, titled view over one or more analysis runs | Dashboard and report screens |
 | `audit` | **Implemented** | `AuditEvent` (actor, pseudonymous actor label, action, target, request ID; no financial values) and `AuditEvent.record()` | — |

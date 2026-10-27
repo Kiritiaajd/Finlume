@@ -48,10 +48,16 @@ Its acceptance criteria and query budgets are in that plan, §4 and §8.
 
 **Goal:** the persistence model for statements and facts, with provenance (FR-010, FR-012, FR-016, FR-017).
 
+Delivered as two PRs:
+
+- **2a** (*implemented 2026-10-27*): both apps, the five models, migrations, constraints, the read-only admin and their tests.
+- **2b:** the mapping layer and the assembly rule.
+
 - **Apps:** `financial_records` (`ReportingEntity`, `FinancialStatement`, `StatementLineItem`, `FinancialFact`) and `documents` (`SourceDocument`; only `manual_entry` in this step).
 - **Constraints, per DATA_MODEL:**
   - `RESTRICT` provenance keys (FA-05);
-  - a partial unique index for "one current version";
+  - partial unique indexes for "one current version": at most one validated and one draft version per statement and period, so a restatement can be drafted while the validated version stays in use (decided 2026-10-27);
+  - composite foreign keys (PostgreSQL) so related rows cannot cross workspaces and facts match their statement;
   - `CHECK (version = 1) = (supersedes IS NULL)`;
   - a currency format CHECK;
   - `UNIQUE(statement, line_item)` on facts.

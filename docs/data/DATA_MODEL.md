@@ -29,11 +29,11 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 | `OrganizationMembership` | `organizations` | MVP | User's role in an organization (`admin` or `member`) |
 | `Workspace` | `workspaces` | MVP | Tenancy and permission boundary: a user's personal workspace, or an organization workspace |
 | `WorkspaceMembership` | `workspaces` | MVP | User's role in a workspace; the only source of workspace access |
-| `ReportingEntity` | `financial_records` | MVP | The business, person or company whose statements are analysed |
-| `SourceDocument` | `documents` | MVP | Where figures came from: manual entry session or uploaded file |
-| `FinancialStatement` | `financial_records` | MVP | One statement for one entity, one period, one version |
-| `StatementLineItem` | `financial_records` | MVP | A raw row exactly as entered or uploaded |
-| `FinancialFact` | `financial_records` | MVP | A verified, normalised figure in base currency units |
+| `ReportingEntity` | `financial_records` | **Implemented** (step 2a) | The business, person or company whose statements are analysed |
+| `SourceDocument` | `documents` | **Implemented** (step 2a; manual entry only, files in step 4) | Where figures came from: manual entry session or uploaded file |
+| `FinancialStatement` | `financial_records` | **Implemented** (step 2a) | One statement for one entity, one period, one version |
+| `StatementLineItem` | `financial_records` | **Implemented** (step 2a) | A raw row exactly as entered or uploaded |
+| `FinancialFact` | `financial_records` | **Implemented** (step 2a) | A verified, normalised figure in base currency units |
 | `AnalysisRun` | `analysis` | MVP | One immutable execution of the calculation engine |
 | `MetricResult` | `analysis` | MVP | One metric value produced by a run |
 | `AnalysisIssue` | `analysis` | MVP | A validation or calculation issue produced by a run |
@@ -177,7 +177,7 @@ rules are the same for both. The domain data they hold differs and lives in sepa
 (for example, personal-finance transactions in Phase 4 never share a table with business
 statements).
 
-### 4.4 ReportingEntity (MVP)
+### 4.4 ReportingEntity (Implemented)
 
 The subject of analysis: the user's own business, a client's business or a researched
 listed company.
@@ -187,36 +187,36 @@ listed company.
 | `workspace` | FK → Workspace, `CASCADE` | |
 | `name` | varchar(200) | |
 | `entity_type` | varchar(16) | `business`, `individual` or `listed_company` (CHECK) |
-| `default_currency` | char(3), nullable | Suggested currency for new statements |
+| `default_currency` | varchar(3), blank when none | Suggested currency for new statements; `''` or `^[A-Z]{3}$` (CHECK) |
 | `fiscal_year_end_month` | smallint, nullable | 1–12 (CHECK) |
-| `identifiers` | jsonb, default `{}` | Reserved for ticker, ISIN or registration number (Phase 5); not interpreted in the MVP |
 
-Constraints: `UNIQUE (workspace, name)`.
+Constraints: `UNIQUE (workspace, name)` (exact, case-sensitive).
 
-### 4.5 SourceDocument (MVP)
+`identifiers` (ticker, ISIN or registration number) is added in Phase 5, when something
+interprets it.
+
+### 4.5 SourceDocument (Implemented: manual entry)
 
 Records where figures came from. Every statement has exactly one source.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `workspace` | FK → Workspace, `CASCADE` | |
-| `kind` | varchar(16) | `manual_entry`, `csv_upload`; later `pdf` (Phase 2) and `provider` (Phase 5) |
-| `original_filename` | varchar(255), nullable | Display only; never used as a storage path |
-| `content_type` | varchar(100), nullable | Detected from the content, not trusted from the client |
-| `size_bytes` | bigint, nullable | |
-| `sha256` | char(64), nullable | Fingerprint of the stored bytes; required for file kinds |
-| `storage_key` | varchar(255), nullable | Key in the `private_documents` storage; random, never derived from the filename |
-| `uploaded_by` | FK → User, `SET NULL` | |
-| `uploaded_at` | timestamptz | |
+| `kind` | varchar(16) | `manual_entry` (CHECK). `csv_upload` arrives in step 4, `pdf` in Phase 2 and `provider` in Phase 5 |
+| `created_by` | FK → User, `SET NULL`, nullable | Who entered or uploaded it. `created_at` is the upload time |
 
-Constraints: `CHECK (kind = 'manual_entry' OR (sha256 IS NOT NULL AND storage_key IS NOT NULL))`.
-Index: `(workspace, sha256)` to detect re-uploads of the same file; duplicates produce a
-warning, not a rejection.
+**Added in step 4 with CSV import**, together with the code that writes them: the file
+columns `original_filename` (display only, never a storage path), `content_type` (detected
+from the content), `size_bytes`, `sha256` (fingerprint of the stored bytes) and
+`storage_key` (random key in the `private_documents` storage); the CHECK
+`kind = 'manual_entry' OR (sha256 IS NOT NULL AND storage_key IS NOT NULL)`; and the index
+`(workspace, sha256)`, which detects re-uploads of the same file (a warning, not a
+rejection).
 
 Files are stored only through `PrivateFileSystemStorage`. This is **Implemented**:
 `url()` raises `PublicURLNotAllowedError` and files are written with mode `0o600`.
 
-### 4.6 FinancialStatement (MVP)
+### 4.6 FinancialStatement (Implemented)
 
 One statement type for one entity and one period, at one version.
 
@@ -224,44 +224,52 @@ One statement type for one entity and one period, at one version.
 |-------|------|-------|
 | `workspace` | FK → Workspace, `CASCADE` | Denormalised for scoping |
 | `entity` | FK → ReportingEntity, `RESTRICT` | |
-| `statement_type` | varchar(24) | `income_statement`, `balance_sheet` or `cash_flow` |
+| `statement_type` | varchar(24) | `income_statement`, `balance_sheet` or `cash_flow` (CHECK) |
 | `period_start`, `period_end` | date | `CHECK (period_start <= period_end)`; balance sheet figures are as of `period_end` |
-| `period_type` | varchar(16) | `annual`, `half_year`, `quarter`, `month` or `other` |
-| `currency` | char(3) | ISO 4217, `CHECK (currency ~ '^[A-Z]{3}$')` |
-| `reported_scale` | varchar(16) | `units`, `thousands`, `lakhs`, `millions`, `crores` or `billions` |
+| `period_type` | varchar(16) | `annual`, `half_year`, `quarter`, `month` or `other` (CHECK) |
+| `currency` | varchar(3) | ISO 4217, `CHECK (currency ~ '^[A-Z]{3}$')` |
+| `reported_scale` | varchar(16) | `units`, `thousands`, `lakhs`, `millions`, `crores` or `billions` (CHECK) |
 | `source_document` | FK → SourceDocument, `RESTRICT` | |
-| `status` | varchar(16) | `draft`, `validated` or `superseded` |
-| `version` | integer ≥ 1 | |
-| `supersedes` | FK → self, `RESTRICT`, nullable, unique | The previous version this one restates |
-| `restatement_reason` | text, nullable | Required when `supersedes` is set |
+| `status` | varchar(16) | `draft` (default), `validated` or `superseded` (CHECK) |
+| `version` | integer ≥ 1 | Default 1 |
+| `previous_version` | integer, generated (`version - 1`, stored) | Computed by the database; used by the restatement key below |
+| `supersedes` | FK → self, `RESTRICT`, nullable, unique | The previous version this one restates: exactly version `version - 1` of the same statement |
+| `restatement_reason` | text, blank unless restating | Required when `supersedes` is set, with at least one non-whitespace character, and blank otherwise (CHECK) |
+
+The statement type, period type and scale codes, and the line-item codes below, are taken
+from `domain.financial_statements` (`StatementType`, `PeriodType`, `Scale`, `LineItem`),
+so the database and the engine share one taxonomy. A change there shows up as a pending
+migration.
 
 Constraints:
 
 - `UNIQUE (entity, statement_type, period_start, period_end, version)`.
-- A partial unique index allows at most one non-superseded version per (`entity`, `statement_type`, `period_start`, `period_end`) where `status <> 'superseded'`.
-- `CHECK ((version = 1) = (supersedes IS NULL))`.
+- **Current versions.** Per (`entity`, `statement_type`, `period_start`, `period_end`), two partial unique indexes allow **at most one `validated` version** (the one analyses use) and **at most one `draft`**. A restatement can therefore be drafted as version *n + 1* while version *n* stays validated and in use. Validating the draft marks version *n* `superseded` in the same transaction (step 3). These indexes cannot be deferred, so version *n* is superseded **before** version *n + 1* is marked validated. Any number of superseded versions may exist. Analyses use the validated version, never a draft.
+- `CHECK ((version = 1) = (supersedes IS NULL))`, written as `(version = 1 AND supersedes IS NULL) OR (version > 1 AND supersedes IS NOT NULL)`, plus `CHECK (version >= 1)`.
+- A restatement restates exactly the previous version of the same statement: same workspace, entity, statement type and period, and `version - 1`. A version therefore cannot restate itself, skip a version or restate a later one ([cross-row consistency](#cross-row-consistency-postgresql)).
 
 Index: `(workspace, entity, period_end DESC)` for dashboard lookups.
 
-### 4.7 StatementLineItem (MVP)
+### 4.7 StatementLineItem (Implemented)
 
 A raw input row, exactly as the user provided it.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `statement` | FK → FinancialStatement, `CASCADE` | Raw rows belong to their statement version |
-| `row_number` | integer | Order in the source |
+| `row_number` | integer ≥ 1 | Order in the source (CHECK) |
 | `label` | varchar(255) | Label as entered or as it appeared in the CSV |
-| `line_item_code` | varchar(64), nullable | Mapped canonical code (see the [taxonomy](FINANCIAL_CALCULATION_CONVENTIONS.md#4-line-item-taxonomy-implemented)); null means unmapped |
+| `line_item_code` | varchar(64), blank when unmapped | Mapped canonical code (see the [taxonomy](FINANCIAL_CALCULATION_CONVENTIONS.md#4-line-item-taxonomy-implemented)); `''` or a taxonomy code (CHECK) |
 | `reported_amount` | numeric(30,6), nullable | In the statement's `reported_scale`; null when the source cell was blank |
-| `raw_value` | varchar(64) | Original text, kept for audit (for example `"(1,234.5)"`) |
-| `source_reference` | varchar(64), nullable | For example `row 14` or `B14`; later a PDF page/region |
+| `raw_value` | varchar(64), may be blank | Original text, kept for audit (for example `"(1,234.5)"`) |
+| `source_reference` | varchar(64), may be blank | For example `row 14` or `B14`; later a PDF page/region |
 
 Constraints: `UNIQUE (statement, row_number)`. A partial unique index on
-(`statement`, `line_item_code`) where `line_item_code IS NOT NULL` ensures a code is mapped
-at most once per statement.
+(`statement`, `line_item_code`) where `line_item_code <> ''` ensures a code is mapped
+at most once per statement. Whether a code belongs to the statement's type (for example,
+`revenue` only on an income statement) is checked by the step 3 input validation.
 
-### 4.8 FinancialFact (MVP)
+### 4.8 FinancialFact (Implemented)
 
 A verified, normalised figure. This is the only input the calculation engine accepts.
 Persisted facts are loaded into the domain's `FinancialFactSet` (**Implemented**).
@@ -271,17 +279,41 @@ Persisted facts are loaded into the domain's `FinancialFactSet` (**Implemented**
 | `workspace` | FK → Workspace, `CASCADE` | |
 | `entity` | FK → ReportingEntity, `RESTRICT` | |
 | `statement` | FK → FinancialStatement, `RESTRICT` | The exact statement version |
-| `line_item` | FK-like varchar(64) | Canonical code; validated against the taxonomy |
-| `period_start`, `period_end`, `period_type` | | Copied from the statement for indexing |
-| `currency` | char(3) | Copied from the statement |
+| `line_item` | varchar(64) | Canonical code; a taxonomy code (CHECK) and equal to its raw row's code |
+| `period_start`, `period_end`, `period_type` | | Copied from the statement for indexing, and kept equal to it |
+| `currency` | varchar(3) | Copied from the statement, and kept equal to it |
 | `value` | numeric(30,6) | **Base currency units**, signed according to the sign convention |
-| `derived_from` | FK → StatementLineItem, `RESTRICT`, unique | Provenance link |
-| `review_status` | varchar(16) | `unreviewed`, `confirmed` or `rejected`; manual and confirmed-CSV facts start as `confirmed` |
+| `derived_from` | FK → StatementLineItem, `RESTRICT`, unique | Provenance link, to a mapped row of the same statement |
+| `review_status` | varchar(16) | `unreviewed`, `confirmed` or `rejected` (CHECK); manual and confirmed-CSV facts start as `confirmed` |
 | `reviewed_by` | FK → User, `SET NULL`, nullable | |
 | `reviewed_at` | timestamptz, nullable | |
 
 Constraints: `UNIQUE (statement, line_item)`. Index:
 `(entity, line_item, period_end)` for multi-period queries.
+
+### Cross-row consistency (PostgreSQL)
+
+Single-column foreign keys cannot keep related rows in one workspace. Django 5.2 has no
+composite foreign keys, so migrations `financial_records.0002` and `0003` add them in SQL on
+PostgreSQL. Each one references a `*_key` unique constraint declared on the target model:
+
+| Constraint | Columns → referenced columns | Guarantees |
+|---|---|---|
+| `…financialstatement_entity_same_workspace` | `(workspace, entity)` → entity `(workspace, id)` | A statement's entity is in its workspace |
+| `…financialstatement_source_same_workspace` | `(workspace, source_document)` → document `(workspace, id)` | Its source document is too |
+| `…financialstatement_supersedes_same_key` | `(workspace, entity, statement_type, period_start, period_end, previous_version, supersedes)` → statement `(…, version, id)` | A restatement restates the previous version of the same statement (migration `0003`) |
+| `…financialfact_matches_statement` | `(workspace, entity, period_start, period_end, period_type, currency, statement)` → statement | A fact's copied columns equal its statement's, so a statement with facts cannot change them |
+| `…financialfact_derived_from_same_statement` | `(statement, derived_from, line_item)` → line item `(statement, id, line_item_code)` | A fact derives from a mapped row of its own statement, with the same code |
+
+A line item has no `workspace` column. It reaches its workspace through its statement, and
+the last key keeps its fact in the same one.
+
+The keys are `DEFERRABLE INITIALLY DEFERRED`, like Django's own foreign keys, and use
+`ON DELETE NO ACTION`. Django's `RESTRICT` handling decides what may be deleted, and a
+workspace cascade can remove rows in any order within its transaction. They are checked
+at commit, or earlier with `SET CONSTRAINTS ALL IMMEDIATE`, which is what
+`connection.check_constraints()` does. SQLite, which is never used for real data, does not
+get them.
 
 ### 4.9 AnalysisRun (MVP)
 
@@ -385,7 +417,7 @@ rows only after a human confirms them.
 | **Units and scales** | `reported_amount` stays in the reported scale. `FinancialFact.value` is always in base units, converted exactly by powers of ten. |
 | **Reporting periods** | Explicit start and end dates plus a period type. Balance sheet facts are as of `period_end`. An analysis combines facts with identical period bounds only. |
 | **Missing data** | An absent fact means unknown. It is never stored or treated as zero. Blank cells give `reported_amount = NULL` and no fact. |
-| **Restatements** | A new `FinancialStatement` version with `supersedes` and a reason. Old facts and runs stay intact. New analyses use the latest non-superseded version. |
+| **Restatements** | A new `FinancialStatement` version with `supersedes` and a reason, drafted while the previous version stays validated. Old facts and runs stay intact. New analyses use the latest **validated** version, never a draft restatement. |
 | **Rounding** | Inputs are stored exactly as given, up to 6 decimal places. Results are quantised to 6 decimal places with half-even rounding. Display rounding happens in the client only. |
 | **Reconciliation** | Validation checks (balance sheet identity and gross-profit subtotal, with 0.1 % relative tolerance) produce persisted `AnalysisIssue` warnings. They never auto-correct data. |
 

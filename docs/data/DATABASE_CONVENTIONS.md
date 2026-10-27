@@ -77,6 +77,7 @@ transaction. It does not rely on a single cascade (see
 - Every tenant-owned table has a non-null `workspace` foreign key, either directly or through an owned parent. Frequently queried tables (`FinancialStatement`, `FinancialFact`, `AnalysisRun`, `SourceDocument`, `Report`) have it **directly**, even though it is derivable, so every query can filter on it with an index.
 - Querysets in API views always start from the requesting user's memberships (`.filter(workspace__memberships__user=request.user)` or an equivalent manager method). They never start from `Model.objects.all()`.
 - An object outside the user's workspaces returns `404`, not `403`, so its existence is not disclosed.
+- A tenant row that references another tenant row is kept in the same workspace by the database. On PostgreSQL, a composite foreign key `(workspace_id, <fk>_id)` references a `UNIQUE (workspace, id)` key on the target, added in SQL because Django has no composite foreign keys ([DATA_MODEL, cross-row consistency](DATA_MODEL.md#cross-row-consistency-postgresql)).
 - Shared reference data (for example, future market data) lives in separate tables without a `workspace` column and is read-only to users.
 
 ## Constraints

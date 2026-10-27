@@ -117,6 +117,16 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - Events `organization.created`, `organization.renamed`, `organization.member_added`, `organization.member_role_changed` and `organization.member_removed` are audited.
   - `tests/test_tenant_isolation.py` holds the plan's §8 security tests, parametrized over every tenancy endpoint. PostgreSQL concurrency tests cover the last-admin rule and the workspace-membership sync.
 
+- **Financial statement models (MVP step 2a, DATA_MODEL §4.4 to 4.8):** no API yet; statement entry arrives in step 3.
+  - New apps `financial_records` (`ReportingEntity`, `FinancialStatement`, `StatementLineItem`, `FinancialFact`) and `documents` (`SourceDocument`, `manual_entry` only; file columns arrive with CSV import in step 4).
+  - Statement types, period types, scales and line-item codes come from `domain.financial_statements`, so the database accepts exactly the engine's taxonomy.
+  - Versioned statements: `UNIQUE (entity, statement_type, period, version)`; at most one validated and at most one draft version per statement and period (partial unique indexes); `(version = 1) = (supersedes IS NULL)`; and a restatement reason (not only whitespace) exactly when restating.
+  - Version *n* can restate only version *n − 1* of the same statement (`financial_records.0003`, using the generated column `previous_version`), so a restatement chain cannot loop, skip or run backwards.
+  - CHECK constraints for every code, the currency format (`^[A-Z]{3}$`), `period_start <= period_end`, positive versions and row numbers, and the fiscal month (1–12). A line-item code is mapped at most once per statement, in both raw rows and facts.
+  - Provenance links (fact → statement, fact → raw row, statement → entity, statement → source document, statement → restated version) are `RESTRICT`; deleting a whole workspace still cascades through all of them.
+  - On PostgreSQL, composite foreign keys (`financial_records.0002` and `0003`) keep a statement's entity, source document and restated version in its workspace, keep each fact's workspace, entity, period and currency equal to its statement's, and tie each fact to a mapped row of its own statement.
+  - Read-only admin for the five models.
+
 ### Changed
 
 - **Unauthenticated API requests now get `401`** with `WWW-Authenticate: Session`, instead of `403`. Signed-in users without permission, and CSRF failures, still get `403`.

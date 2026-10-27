@@ -415,7 +415,8 @@ rows only after a human confirms them.
 |---------|----------|
 | **Currency** | One ISO 4217 currency per statement. Facts and runs carry the currency. The engine never mixes currencies, and there is no FX conversion (decision D-03). |
 | **Units and scales** | `reported_amount` stays in the reported scale. `FinancialFact.value` is always in base units, converted exactly by powers of ten. |
-| **Reporting periods** | Explicit start and end dates plus a period type. Balance sheet facts are as of `period_end`. An analysis combines facts with identical period bounds only. |
+| **Reporting periods** | Explicit start and end dates plus a period type. A balance sheet is stored against the period it closes (the same start, end and type as the income statement), and its facts are as of `period_end`. An analysis combines facts with identical period bounds and type only. |
+| **Assembling an analysis input** | Rule A2 ([FOUNDATION_AUDIT FA-02](../architecture/FOUNDATION_AUDIT.md#fa-02--no-rule-for-assembling-one-fact-set-from-separate-statements-approved)), implemented by `services.statement_analysis.assemble_analysis_input`: for one entity and period, the **validated** version of each statement type and its `confirmed` facts. A missing statement type is allowed. Statements in different currencies, or no validated statement at all, are refused (`409 conflict`). |
 | **Missing data** | An absent fact means unknown. It is never stored or treated as zero. Blank cells give `reported_amount = NULL` and no fact. |
 | **Restatements** | A new `FinancialStatement` version with `supersedes` and a reason, drafted while the previous version stays validated. Old facts and runs stay intact. New analyses use the latest **validated** version, never a draft restatement. |
 | **Rounding** | Inputs are stored exactly as given, up to 6 decimal places. Results are quantised to 6 decimal places with half-even rounding. Display rounding happens in the client only. |

@@ -72,6 +72,7 @@ one of `annual`, `half_year`, `quarter`, `month` or `other`.
 - Flow statements (income statement, cash flow) cover `start`..`end` inclusive.
 - Balance sheet figures are a position **as of** `end` (`ReportingPeriod.as_of`).
 - One `FinancialFactSet` describes one period. Ratios that mix a flow with a position (ROE, ROA) use the closing balance of the same period (see §6).
+- A stored balance sheet carries the period it closes: the same start, end and type as the income statement. Assembly (rule A2, `services.statement_analysis`) combines the validated income statement, balance sheet and cash flow of one entity and one period into one `FinancialFactSet`, using confirmed facts only and one currency ([data model §6](DATA_MODEL.md#6-handling-financial-data-specifics)).
 
 ## 4. Line-item taxonomy (Implemented)
 

@@ -34,9 +34,9 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 | `FinancialStatement` | `financial_records` | **Implemented** (step 2a) | One statement for one entity, one period, one version |
 | `StatementLineItem` | `financial_records` | **Implemented** (step 2a) | A raw row exactly as entered or uploaded |
 | `FinancialFact` | `financial_records` | **Implemented** (step 2a) | A verified, normalised figure in base currency units |
-| `AnalysisRun` | `analysis` | MVP | One immutable execution of the calculation engine |
-| `MetricResult` | `analysis` | MVP | One metric value produced by a run |
-| `AnalysisIssue` | `analysis` | MVP | A validation or calculation issue produced by a run |
+| `AnalysisRun` | `analysis` | **Implemented** (step 5a) | One immutable execution of the calculation engine |
+| `MetricResult` | `analysis` | **Implemented** (step 5a) | One metric value produced by a run |
+| `AnalysisIssue` | `analysis` | **Implemented** (step 5a) | A validation or calculation issue produced by a run |
 | `Report` | `reports` | MVP | A saved, titled view of one or more analysis runs |
 | `AuditEvent` | `audit` | MVP | Who did what, when; contains no financial values |
 | `Team`, `TeamMembership` | `organizations` | Future | Manage workspace memberships for a group ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) §5) |
@@ -324,47 +324,60 @@ at commit, or earlier with `SET CONSTRAINTS ALL IMMEDIATE`, which is what
 `connection.check_constraints()` does. SQLite, which is never used for real data, does not
 get them.
 
-### 4.9 AnalysisRun (MVP)
+### 4.9 AnalysisRun (Implemented)
 
-One execution of `domain.calculations.run_statement_analysis` (**Implemented**). Completed
-runs are immutable.
+One execution of `domain.calculations.run_statement_analysis`. A run is **append-only**: it
+has `public_id` and `created_at` but no `updated_at`, and the model refuses to save an
+existing run or delete one by itself (`ImmutableRecordError`). Runs disappear only with
+their workspace. A correction is a new statement version and a new run.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `workspace` | FK → Workspace, `CASCADE` | |
-| `entity` | FK → ReportingEntity, `RESTRICT` | |
-| `period_start`, `period_end`, `period_type`, `currency` | | The fact set's period and currency |
+| `entity` | FK → ReportingEntity, `RESTRICT` | In the run's workspace (PostgreSQL composite key, `analysis.0002`) |
+| `period_start`, `period_end`, `period_type`, `currency` | | The fact set's period and currency (CHECKs as on statements) |
 | `engine_version` | varchar(32) | `ENGINE_VERSION` at run time, currently `0.1.0` |
-| `input_fingerprint` | char(64) | SHA-256 of the canonicalised input facts (see [conventions](FINANCIAL_CALCULATION_CONVENTIONS.md#10-reproducibility-and-versioning)) |
-| `status` | varchar(16) | `completed` or `failed`; `pending` and `running` are reserved for background jobs |
+| `input_fingerprint` | char(64) as varchar | SHA-256 of the canonicalised input facts, lowercase hex (CHECK); see [conventions](FINANCIAL_CALCULATION_CONVENTIONS.md#10-reproducibility-and-versioning) |
 | `created_by` | FK → User, `SET NULL` | |
-| `completed_at` | timestamptz, nullable | |
+| `idempotency_key` | uuid, nullable | Partial `UNIQUE (workspace, created_by, idempotency_key)` |
 
-A join table `analysis_run_input_fact (run, fact)` with `RESTRICT` on `fact` records exactly
-which facts were used. Index: `(workspace, entity, created_at DESC)`, plus a non-unique index
-on `(entity, input_fingerprint, engine_version)` to find equivalent runs.
+There is no `status` or `completed_at`. A run is saved only once it has completed, so
+`created_at` is its completion time. Inputs that cannot be assembled are refused before
+anything is saved (decided 2026-10-27). A status column arrives with background jobs
+(Phase 2).
 
-### 4.10 MetricResult (MVP)
+A join table `AnalysisRunInputFact (run, fact)`, `UNIQUE (run, fact)` with `RESTRICT` on
+`fact`, records exactly which facts were used, so those facts and their statements can never
+be deleted while the run exists. Indexes: `(workspace, entity, created_at DESC)`, and
+`(entity, input_fingerprint, engine_version)` to find equivalent runs.
+
+### 4.10 MetricResult (Implemented)
+
+Append-only, like its run.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `run` | FK → AnalysisRun, `CASCADE` | |
-| `metric_code` | varchar(64) | For example `gross_margin` |
-| `value` | numeric(24,6), nullable | Null means not computable |
-| `unit` | varchar(16) | `ratio` |
+| `position` | smallint | Report order, as in `RATIO_DEFINITIONS` |
+| `metric_code` | varchar(64) | A `RATIO_DEFINITIONS` code, for example `gross_margin` (CHECK) |
+| `value` | numeric(24,6), nullable | Null means not computable; never zero for a missing input |
+| `unit` | varchar(16) | `ratio` (CHECK) |
 | `methodology` | text | Copied from the definition at run time |
 | `inputs` | jsonb | `{line_item_code: "decimal string"}`; decimals are stored as strings, never as JSON floats |
 
 Constraints: `UNIQUE (run, metric_code)`.
 
-### 4.11 AnalysisIssue (MVP)
+### 4.11 AnalysisIssue (Implemented)
+
+Append-only, like its run.
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `run` | FK → AnalysisRun, `CASCADE` | |
-| `metric_code` | varchar(64), nullable | Null for validation issues that apply to the whole fact set |
-| `code` | varchar(64) | `IssueCode` value, for example `balance_sheet_imbalance` |
-| `severity` | varchar(16) | `info`, `warning` or `error` |
+| `position` | smallint | Validation issues first, then each metric's issues; `UNIQUE (run, position)` |
+| `metric_code` | varchar(64), blank | Blank for validation issues about the whole fact set (CHECK: blank or a metric code) |
+| `code` | varchar(64) | `IssueCode` value, for example `balance_sheet_imbalance` (CHECK) |
+| `severity` | varchar(16) | `info`, `warning` or `error` (CHECK) |
 | `message` | text | |
 | `line_items` | jsonb | List of line-item codes |
 

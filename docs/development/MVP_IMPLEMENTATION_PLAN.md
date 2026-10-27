@@ -130,6 +130,11 @@ Delivered as two PRs:
 
 **Goal:** run, save and reload immutable analyses (FR-030–FR-034, FR-040, NFR-005).
 
+Delivered as two PRs (decided 2026-10-27):
+
+- **5a** (*implemented 2026-10-27*): the fingerprint, the `analysis` app, the run workflow and its endpoints. Every POST creates a new immutable run, and inputs that cannot be assembled are a `409` with nothing saved. There is no `status` column until background jobs exist.
+- **5b:** saved reports.
+
 - **Domain:** `fingerprint(facts)` as a pure function in the canonical format (FA-11).
 - **App:** `analysis` (`AnalysisRun`, `MetricResult`, `AnalysisIssue`, plus the input-fact join, `RESTRICT`).
 - **Workflow** (`services/statement_analysis/`):

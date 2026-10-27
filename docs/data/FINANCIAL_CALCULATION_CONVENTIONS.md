@@ -251,7 +251,7 @@ has ever been persisted, so pre-release fixes amend `0.1.0` and are listed under
 **Unreleased** in the changelog. Examples are the `result_out_of_range` handling and the
 pluralised `missing_input` message.
 
-### Input fingerprint (MVP, designed)
+### Input fingerprint (Implemented)
 
 `AnalysisRun.input_fingerprint` is the SHA-256 (lowercase hex) of a canonical UTF-8 JSON
 document:
@@ -266,7 +266,12 @@ document:
 
 - `facts` are sorted by line-item code. Values are formatted as fixed-point strings with exactly 6 decimal places (no exponent).
 - Keys are sorted, there is no insignificant whitespace (`separators=(",", ":")`), and the document is ASCII-only.
-- The engine version is stored separately, not hashed. The same fingerprint with the same engine version must produce identical results, and the MVP test suite will verify this end to end.
+- The engine version is stored separately, not hashed. The same fingerprint with the same engine version must produce identical results, and the test suite verifies this end to end (`tests/analysis/test_api.py`).
+
+`domain.calculations.fingerprint(facts)` implements this as a pure function. A value with
+more than 6 decimal places is refused, never rounded; `-0` and `0` are the same input; and
+the result does not depend on the caller's decimal context. The tests hash the example above
+independently, as a golden value (`tests/domain/test_fingerprint.py`).
 
 ## 11. Testing calculations
 

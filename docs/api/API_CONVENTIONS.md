@@ -4,7 +4,7 @@ The Finlume web and mobile clients consume the same versioned REST API, served b
 
 > **Implementation status:** the implemented endpoints are health,
 > authentication, organizations, workspaces, entities, statements, CSV
-> imports and the line-item taxonomy ([below](#implemented-endpoints)). Every other
+> imports, analyses and the line-item taxonomy ([below](#implemented-endpoints)). Every other
 > resource in this document is designed but not yet built. The global behaviours (versioning, error envelope,
 > request IDs, pagination, throttling, authentication defaults) are already
 > configured in `backend/config/settings/base.py`.
@@ -104,7 +104,7 @@ Cursor pagination may be introduced for large, append-only collections such as t
 
 ## Idempotency
 
-Endpoints that create imports or analysis runs accept an `Idempotency-Key` header, a client-generated UUID. Replaying the same key with the same body returns the original result instead of creating a duplicate; replaying it with a different body returns `409`. A key that is not a UUID is a `400`. Keys are scoped to the user and workspace. **Implemented** for CSV imports, where "the same body" means the same file for the same entity; analysis runs follow in step 5.
+Endpoints that create imports or analysis runs accept an `Idempotency-Key` header, a client-generated UUID. Replaying the same key with the same body returns the original result instead of creating a duplicate; replaying it with a different body returns `409`. A key that is not a UUID is a `400`. Keys are scoped to the user and workspace. **Implemented** for CSV imports, where "the same body" means the same file for the same entity, and for analysis runs, where it means the same entity and period.
 
 ## Request IDs
 
@@ -235,6 +235,24 @@ Limits and refusals:
 On any refusal nothing is stored: neither the file nor a row. A row's `source_reference` is its file line (`line 7`).
 
 Response: `201`, the draft (as `GET statements/{id}/`), plus `document` (`{"id", "kind", "filename", "size_bytes", "sha256", "created_at"}`) and `warnings`. Uploading a file already uploaded to the workspace succeeds with a `duplicate_file` warning naming the earlier document. The file is stored privately under a random key and has no URL.
+
+### Analyses (MVP step 5a)
+
+Under `workspaces/{ws}/`. Viewers read; editors run. A run is immutable: there is no update or delete endpoint.
+
+| Endpoint | Access | Success | Notes |
+|---|---|---|---|
+| `POST entities/{id}/analyses/` `{"period_start", "period_end", "period_type"}` | Editor | `201`, the run | Runs the engine on the period's validated statements (rule A2): every statement type, confirmed facts only. Optional `Idempotency-Key`. No validated statement for the period, or statements in different currencies → `409`, and nothing is saved. Running again on unchanged inputs creates a new run with the same fingerprint and values |
+| `GET entities/{id}/analyses/` | Viewer | `200`, a page of runs | Latest first; summaries without metrics |
+| `GET analyses/{id}/` | Viewer | `200`, the run | Reloads with identical values |
+
+Run summary: `{"id", "entity_id", "period_start", "period_end", "period_type", "currency", "engine_version", "input_fingerprint", "uses_superseded_statement", "created_at"}`. `uses_superseded_statement` is `true` once a statement the run used has been restated. The run keeps its figures; a new run would use the restated ones.
+
+A single run adds:
+
+- `metrics`: the seven ratios in report order, each `{"code", "name", "value", "unit", "methodology", "inputs", "issues"}`. `value` is a decimal string with 6 places, or `null` when not computable, never `0` for a missing input. `inputs` maps line-item codes to decimal strings in base units.
+- `issues`: validation issues about the whole fact set, such as `balance_sheet_imbalance`. Warnings never block a run.
+- `inputs`: every figure the engine saw, as `{"line_item", "value", "row_id", "statement_id", "statement_version", "document_id"}`, so each one traces to its row, statement version and source document (acceptance criterion 9).
 
 ### `GET line-items/` (MVP step 3a)
 

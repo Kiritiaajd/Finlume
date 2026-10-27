@@ -140,6 +140,14 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - An entity or statement ID from another workspace answers `404`.
   - `GET /api/v1/line-items/`: the taxonomy with each code's statement type, sign convention and definition, as help text for entry forms.
   - Events `entity.created`, `statement.created` and `statement.updated` are audited, without amounts.
+- **Analyses (MVP step 5a):** run, save and reload immutable analyses (acceptance criteria 6 and 7).
+  - `POST workspaces/{ws}/entities/{id}/analyses/` (editor) with a period assembles that period's validated statements (rule A2), runs the engine and saves the run, all seven metrics with their methodology and inputs, every issue and the exact facts used, in one transaction. `GET entities/{id}/analyses/` and `GET analyses/{id}/` read them (viewer).
+  - Every run is new and immutable: the model refuses updates and single deletions (`ImmutableRecordError`), and there is no endpoint for either. Running again on unchanged inputs gives the same fingerprint and values. A missing input is `null` with a `missing_input` issue, never zero.
+  - No validated statement for the period, or mixed currencies, is a `409`, and nothing is saved. `Idempotency-Key` replays return the original run.
+  - Each run lists its inputs traced to row, statement version and document (criterion 9), and `uses_superseded_statement` flags runs whose statements were later restated.
+  - New `analysis` app: `AnalysisRun`, `MetricResult` (`numeric(24,6)`), `AnalysisIssue` and the input-fact join (`RESTRICT`, so used facts can never be deleted), with CHECKs on every code, a PostgreSQL composite key keeping a run's entity in its workspace, and a read-only admin. `analysis.run` is audited with counts only, no figures.
+  - **Input fingerprint (FA-11 fixed):** `domain.calculations.fingerprint`, the canonical SHA-256 from the calculation conventions §10, with a golden-value test. More than 6 decimal places is refused, never rounded.
+  - The `Idempotency-Key` header parsing moved to `api/idempotency.py`, shared by imports and analyses.
 - **CSV statement import (MVP step 4):** `POST workspaces/{ws}/entities/{id}/imports/` (multipart, editor).
   - The CSV becomes a **draft** statement. Each row carries a proposed code: from the file's optional `code` column, otherwise an exact name match (no fuzzy guessing). The user reviews it with `PATCH` and creates the facts with step 3's `validate` (FR-013, FR-014, acceptance criterion 4).
   - The format is strict and documented: `label`, `amount` and optionally `code`. Amounts are read exactly, never through a float; `(1,234.56)` is negative, and comma grouping is accepted, including Indian. The cell text is kept as `raw_value`, and each row records its file line (`line 7`), so every fact traces to its line, statement version and document (criterion 9). New pure parsing rules live in `domain/financial_statements/csv_import.py`.

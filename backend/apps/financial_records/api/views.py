@@ -13,13 +13,13 @@ from django.conf import settings
 from django.core.files.uploadhandler import MemoryFileUploadHandler
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import MultiPartParser
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.exceptions import PayloadTooLarge
+from api.idempotency import idempotency_key
 from api.pagination import paginated_response
 from api.users import request_user
 from apps.financial_records.models import FinancialStatement, ReportingEntity, StatementStatus
@@ -146,7 +146,7 @@ class EntityImportView(WorkspaceScopedView):
             entity=entity,
             data=upload.read(),
             filename=upload.name or "",
-            idempotency_key=_idempotency_key(request),
+            idempotency_key=idempotency_key(request),
             max_rows=settings.MAX_IMPORT_ROWS,
             **fields,
         )
@@ -169,16 +169,6 @@ class EntityImportView(WorkspaceScopedView):
 
 def _too_large() -> PayloadTooLarge:
     return PayloadTooLarge(f"Files are limited to {settings.MAX_UPLOAD_BYTES} bytes.")
-
-
-def _idempotency_key(request: Request) -> UUID | None:
-    value = request.headers.get("Idempotency-Key")
-    if value is None:
-        return None
-    try:
-        return UUID(value)
-    except ValueError:
-        raise ValidationError({"Idempotency-Key": ["Use a UUID."]}) from None
 
 
 class StatementDetailView(WorkspaceScopedView):

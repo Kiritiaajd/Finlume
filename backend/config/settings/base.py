@@ -147,6 +147,17 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # ---------------------------------------------------------------------------
 AUTH_USER_MODEL = "accounts.User"
 
+# API sign-in is by email (ADR-0007). ModelBackend stays for the Django admin,
+# whose login form sends a username.
+AUTHENTICATION_BACKENDS = [
+    "apps.accounts.backends.EmailBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# Sessions expire after this much inactivity; every request renews them.
+SESSION_COOKIE_AGE = env_int("FINLUME_SESSION_AGE_SECONDS", default=8 * 60 * 60)
+SESSION_SAVE_EVERY_REQUEST = True
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {
@@ -223,7 +234,8 @@ REST_FRAMEWORK: dict[str, Any] = {
     "DEFAULT_VERSIONING_CLASS": "rest_framework.versioning.URLPathVersioning",
     "ALLOWED_VERSIONS": ["v1"],
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.SessionAuthentication",
+        # Answers 401 with a Session challenge instead of DRF's 403 (ADR-0007).
+        "apps.accounts.api.authentication.SessionAuthentication",
     ],
     # Secure by default: every endpoint requires authentication unless it
     # explicitly opts out (as the health endpoint does).
@@ -241,6 +253,9 @@ REST_FRAMEWORK: dict[str, Any] = {
     "DEFAULT_THROTTLE_RATES": {
         "anon": env_str("FINLUME_THROTTLE_ANON", default="60/minute"),
         "user": env_str("FINLUME_THROTTLE_USER", default="1000/hour"),
+        # Sign-in attempts, per client IP and per submitted email (ADR-0007).
+        "login_ip": env_str("FINLUME_THROTTLE_LOGIN_IP", default="5/minute"),
+        "login_email": env_str("FINLUME_THROTTLE_LOGIN_EMAIL", default="5/minute"),
     },
     "EXCEPTION_HANDLER": "api.exceptions.api_exception_handler",
     # Monetary values travel as strings so no client parses them as floats.

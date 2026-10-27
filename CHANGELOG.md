@@ -87,8 +87,21 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
 - **`services.errors.ConflictError`**, returned by the API as `409 conflict` with its safe message.
 - **Read-only admin** for the four tenancy models (`apps.core.admin.ReadOnlyModelAdmin`). Users can no longer be deleted from the admin (ADR-0008 §7).
 
+- **Authentication (MVP PR 1b, ADR-0007):**
+  - API sign-in is by email, case-insensitive, through `EmailBackend`, which uses the existing expression index. `ModelBackend` stays for the Django admin.
+  - New endpoints: `GET auth/csrf/`, `POST auth/register/`, `POST auth/login/`, `POST auth/logout/` and `GET me/`. Registration and sign-in are CSRF-checked.
+  - Registration creates the user, their personal workspace and the owner membership in one transaction. A duplicate email returns `409`.
+  - The first sign-in provisions a missing personal workspace, for example for an account created with `createsuperuser`.
+  - Sign-in is throttled to 5 attempts per minute per IP and per email (`FINLUME_THROTTLE_LOGIN_IP`, `FINLUME_THROTTLE_LOGIN_EMAIL`).
+  - Sessions expire after 8 hours of inactivity and are renewed on each request (`FINLUME_SESSION_AGE_SECONDS`).
+  - A new database constraint requires a non-blank email (`accounts.0002`).
+- **Audit app:** `AuditEvent`, which is append-only and carries a pseudonymous `actor_label` and the request ID, plus `AuditEvent.record()`. Registration, sign-in and failed sign-in are recorded. A failed sign-in keeps only the normalised email, never the password.
+
 ### Changed
 
+- **Unauthenticated API requests now get `401`** with `WWW-Authenticate: Session`, instead of `403`. Signed-in users without permission, and CSRF failures, still get `403`.
+- `User.__str__` returns the email address.
+- Ruff's `S105` and `S106` rules (hard-coded passwords) are not applied to tests, because fixture passwords are fictional.
 - **API layout:** shared DRF plumbing moved from `apps/core` to a new `backend/api/` package (`api.exceptions`, `api.pagination`). Each app's endpoints now live in its own `apps/<app>/api/` package. The architecture test forbids `api` imports in `domain` and in `services`.
 - **Python 3.12 is now the minimum** (was 3.10, which reaches end of life in October 2026). `requires-python`, the Ruff and mypy targets, and the lock files now use 3.12. CI tests 3.12 and 3.13. The re-lock only dropped the pins for Python below 3.11, which removes the development-only `filelock` 4.1.0 advisory. **Recreate an existing `.venv`** on 3.12 or 3.13 ([Local setup](docs/development/LOCAL_SETUP.md#python-versions)).
 - `LineItem` and `IssueCode` are now `StrEnum`. Their values are unchanged, and `str(member)` now returns the value. Engine output is unchanged, so `ENGINE_VERSION` stays 0.1.0.

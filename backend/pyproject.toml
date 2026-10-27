@@ -67,7 +67,8 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101"]  # assert is the point of a test
+# assert is the point of a test; fixture passwords are fictional, not secrets
+"tests/**" = ["S101", "S105", "S106"]
 "apps/*/models.py" = ["RUF012"]  # Django Meta options are conventionally lists
 
 [tool.ruff.lint.isort]

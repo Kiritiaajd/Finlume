@@ -7,6 +7,7 @@ from decimal import Decimal
 
 import pytest
 from django.conf import settings
+from django.core.cache import cache
 from rest_framework.test import APIClient
 
 from apps.accounts.models import User
@@ -43,6 +44,12 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture
 def api_client() -> APIClient:
     return APIClient()
+
+
+@pytest.fixture(autouse=True)
+def _isolated_cache():
+    """Throttle counters live in the cache; start every test from zero."""
+    cache.clear()
 
 
 # --- Tenancy builders (fictional data only) ----------------------------------

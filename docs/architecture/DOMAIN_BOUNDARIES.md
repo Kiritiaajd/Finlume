@@ -116,7 +116,7 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 | `documents` | Planned (Phase 1, minimal) | `SourceDocument` metadata (kind, SHA-256, private storage key) | First stored upload (the CSV file kept for provenance) |
 | `analysis` | Planned (Phase 1) | `AnalysisRun` (immutable), `MetricResult`, `AnalysisIssue` | Persisting an engine run |
 | `reports` | Planned (Phase 1; a separate app only if reports need their own persistence and endpoints) | `Report`: a saved, titled view over one or more analysis runs | Dashboard and report screens |
-| `audit` | Planned (Phase 1) | `AuditEvent` (actor, action, target; no financial values) | First state-changing endpoint |
+| `audit` | **Implemented** | `AuditEvent` (actor, pseudonymous actor label, action, target, request ID; no financial values) and `AuditEvent.record()` | — |
 | `personal_finance` | Future (Phase 4) | Accounts, transactions, categories, budgets | Personal-finance phase |
 | `investments`, `market_data` | Future (Phase 5) | Securities, listings, prices, portfolios, holdings | Investment phase |
 | `ai_explanations` | Future (Phase 3) | Explanation requests and outputs linked to analysis runs | AI phase |

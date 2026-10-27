@@ -15,7 +15,7 @@ Finlume separates **API errors** from **domain issues**:
 |---|---|---|
 | Meaning | The request could not be processed (invalid input, not authenticated, not found, server failure) | The request succeeded, but the financial data deserves attention (missing input, zero denominator, balance sheet does not balance) |
 | Transport | Non-2xx HTTP status with the error envelope (§2) | **Data inside a successful (2xx) response**, e.g. on a metric result or an analysis run |
-| Source | DRF / Django / `apps.core.exceptions` | `domain.validation.Issue` with a stable `IssueCode` and a `Severity` |
+| Source | DRF / Django / `api.exceptions` | `domain.validation.Issue` with a stable `IssueCode` and a `Severity` |
 | Example | `400 validation_error`: `amount` is not a number | `200` with gross margin `null` plus issue `missing_input` for `gross_profit` |
 
 A ratio that cannot be computed is a valid, explainable result, not an HTTP
@@ -41,7 +41,7 @@ and `error` (the input cannot be analysed until corrected).
 
 ## 2. API error envelope (Implemented)
 
-Every API error uses one shape (`apps/core/exceptions.py`):
+Every API error uses one shape (`api/exceptions.py`):
 
 ```json
 {

@@ -5,7 +5,8 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from rest_framework import exceptions
 
-from apps.core.exceptions import api_exception_handler
+from api.exceptions import api_exception_handler
+from services.errors import ConflictError
 
 
 def _handle(exc):
@@ -40,6 +41,14 @@ def test_api_exceptions_use_the_envelope(exc, status, code):
     assert response.data["error"]["code"] == code
     assert response.data["error"]["details"] is None
     assert "internal" not in response.data["error"]["message"]
+
+
+def test_conflict_errors_from_use_cases_return_409_with_their_message():
+    response = _handle(ConflictError("A workspace must keep at least one owner."))
+
+    assert response.status_code == 409
+    assert response.data["error"]["code"] == "conflict"
+    assert response.data["error"]["message"] == "A workspace must keep at least one owner."
 
 
 def test_parse_errors_hide_parser_internals():

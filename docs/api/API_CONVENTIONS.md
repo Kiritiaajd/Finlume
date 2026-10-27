@@ -41,7 +41,7 @@ The Finlume web and mobile clients consume the same versioned REST API, served b
 
 ## Errors
 
-Every error response uses one envelope, produced by `apps.core.exceptions.api_exception_handler` and by the JSON `404`/`500` handlers:
+Every error response uses one envelope, produced by `api.exceptions.api_exception_handler` and by the JSON `404`/`500` handlers:
 
 ```json
 {
@@ -69,7 +69,7 @@ Every error response uses one envelope, produced by `apps.core.exceptions.api_ex
 | 404 | `not_found` | Unknown resource, or one the caller may not see. Existence is not revealed to callers without access. A non-member always gets `404` for a workspace and everything in it. |
 | 405 | `method_not_allowed` | Wrong HTTP method. |
 | 406 | `not_acceptable` | Unsupported `Accept` header. |
-| 409 | `conflict` | The request would break an invariant, for example removing a workspace's last owner or an organization's last admin (designed; arrives with MVP step 1). |
+| 409 | `conflict` | The request would break an invariant, for example removing a workspace's last owner or an organization's last admin. Use cases raise `services.errors.ConflictError`, and the handler maps it with its safe message. |
 | 415 | `unsupported_media_type` | Unsupported `Content-Type`. |
 | 429 | `throttled` | Rate limit exceeded; the `Retry-After` header is set. |
 | 500 | `server_error` | Unexpected failure. The error is logged with the request ID. |
@@ -77,7 +77,7 @@ Every error response uses one envelope, produced by `apps.core.exceptions.api_ex
 
 ## Pagination
 
-List endpoints are paginated by default (`apps.core.pagination.StandardPagination`):
+List endpoints are paginated by default (`api.pagination.StandardPagination`):
 
 - Query parameters are `?page=<n>&page_size=<m>`. The default page size is **50** and the maximum is **200**; larger requests are capped.
 - Response shape:

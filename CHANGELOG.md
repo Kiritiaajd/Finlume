@@ -68,9 +68,28 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - teams deferred.
 
   The data model, domain boundaries, product scope (FR-003 to FR-005, acceptance criterion 2), API conventions (every tenant resource nested under its workspace; `409 conflict`), data lifecycle and MVP plan are updated to match.
+- Scaffold for MVP step 1. It adds docstring-only modules plus configuration, and no behaviour yet:
+  - `backend/services/` is the application layer, holding business workflows with one sub-package per capability. The tenancy capabilities `access`, `accounts`, `organizations` and `workspaces` exist now. `statement_analysis`, `documents`, `stock_research` and `portfolio_analysis` are created with their first feature (DOMAIN_BOUNDARIES §3.3).
+  - The new Django apps `organizations`, `workspaces` and `audit` are registered in `INSTALLED_APPS`. Their URL modules are included in `/api/v1/` with no routes yet.
+  - Placeholder modules for the authentication work in `accounts`.
+  - New test packages.
+  - `services` is added to Ruff's first-party packages and to the coverage sources.
+  - `tests/test_architecture.py` now also forbids `services` imports in the domain and DRF imports in `services`.
+
+- **Tenancy models (MVP step 1a, ADR-0008):**
+  - `Organization` and `OrganizationMembership` (`admin` or `member`).
+  - `Workspace`: exactly one of `organization` and `personal_owner` is set, enforced by a CHECK constraint.
+  - `WorkspaceMembership` (`owner`, `editor` or `viewer`), unique per user and workspace.
+  - Role CHECK constraints on both membership tables.
+  - The abstract `PublicModel`, which holds the standard columns.
+- **Data migration** `workspaces.0002`: it gives every existing user a personal workspace and owner membership. It runs in batches and is idempotent.
+- **`services.access`:** `require_workspace_role`, `require_organization_role` and `workspaces_for`. Each takes one indexed query. A non-member gets `404` and a role that is too low gets `403`. Organization admins get no implicit workspace access.
+- **`services.errors.ConflictError`**, returned by the API as `409 conflict` with its safe message.
+- **Read-only admin** for the four tenancy models (`apps.core.admin.ReadOnlyModelAdmin`). Users can no longer be deleted from the admin (ADR-0008 §7).
 
 ### Changed
 
+- **API layout:** shared DRF plumbing moved from `apps/core` to a new `backend/api/` package (`api.exceptions`, `api.pagination`). Each app's endpoints now live in its own `apps/<app>/api/` package. The architecture test forbids `api` imports in `domain` and in `services`.
 - **Python 3.12 is now the minimum** (was 3.10, which reaches end of life in October 2026). `requires-python`, the Ruff and mypy targets, and the lock files now use 3.12. CI tests 3.12 and 3.13. The re-lock only dropped the pins for Python below 3.11, which removes the development-only `filelock` 4.1.0 advisory. **Recreate an existing `.venv`** on 3.12 or 3.13 ([Local setup](docs/development/LOCAL_SETUP.md#python-versions)).
 - `LineItem` and `IssueCode` are now `StrEnum`. Their values are unchanged, and `str(member)` now returns the value. Engine output is unchanged, so `ENGINE_VERSION` stays 0.1.0.
 - CI actions moved to their Node 24 majors: `actions/checkout@v5`, `actions/setup-python@v6` and `actions/setup-node@v5`.

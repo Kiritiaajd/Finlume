@@ -9,16 +9,23 @@ import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 DOMAIN_DIR = BACKEND_DIR / "domain"
+SERVICES_DIR = BACKEND_DIR / "services"
 
 FORBIDDEN_IN_DOMAIN = (
     "django",
     "rest_framework",
+    "api",
     "apps",
+    "services",
     "config",
     "infrastructure",
     "psycopg",
     "requests",
 )
+
+# Use cases never see HTTP: no DRF requests, serializers or exceptions, and no
+# shared API plumbing.
+FORBIDDEN_IN_SERVICES = ("rest_framework", "api")
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -38,5 +45,17 @@ def _imported_modules(path: Path) -> set[str]:
 def test_domain_does_not_depend_on_frameworks_or_outer_layers(path: Path) -> None:
     violations = {
         module for module in _imported_modules(path) if module.split(".")[0] in FORBIDDEN_IN_DOMAIN
+    }
+    assert not violations, f"{path.name} imports {sorted(violations)}"
+
+
+@pytest.mark.parametrize(
+    "path", sorted(SERVICES_DIR.rglob("*.py")), ids=lambda p: str(p.relative_to(BACKEND_DIR))
+)
+def test_services_do_not_depend_on_the_api_layer(path: Path) -> None:
+    violations = {
+        module
+        for module in _imported_modules(path)
+        if module.split(".")[0] in FORBIDDEN_IN_SERVICES
     }
     assert not violations, f"{path.name} imports {sorted(violations)}"

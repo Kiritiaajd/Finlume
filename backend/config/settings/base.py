@@ -39,6 +39,9 @@ INSTALLED_APPS = [
     # Finlume modules
     "apps.core",
     "apps.accounts",
+    "apps.organizations",
+    "apps.workspaces",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [
@@ -107,12 +110,19 @@ def build_databases(
                 "NAME": env_str("POSTGRES_DB"),
                 "USER": env_str("POSTGRES_USER"),
                 "PASSWORD": env_str("POSTGRES_PASSWORD"),
-                "HOST": env_str("POSTGRES_HOST", default="localhost"),
+                # 127.0.0.1, not "localhost": Windows resolves localhost to ::1 first,
+                # and an IPv4-only server (such as compose.yaml's) then stalls every
+                # connection until the IPv6 attempt times out.
+                "HOST": env_str("POSTGRES_HOST", default="127.0.0.1"),
                 "PORT": env_int("POSTGRES_PORT", default=5432),
                 "CONN_MAX_AGE": env_int("POSTGRES_CONN_MAX_AGE", default=60),
                 "CONN_HEALTH_CHECKS": True,
                 "ATOMIC_REQUESTS": True,
-                "OPTIONS": {"sslmode": env_str("POSTGRES_SSLMODE", default="prefer")},
+                "OPTIONS": {
+                    "sslmode": env_str("POSTGRES_SSLMODE", default="prefer"),
+                    # Fail with an error instead of hanging on an unreachable server.
+                    "connect_timeout": env_int("POSTGRES_CONNECT_TIMEOUT", default=5),
+                },
             }
         }
     if engine == "sqlite":
@@ -222,7 +232,7 @@ REST_FRAMEWORK: dict[str, Any] = {
     ],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    "DEFAULT_PAGINATION_CLASS": "apps.core.pagination.StandardPagination",
+    "DEFAULT_PAGINATION_CLASS": "api.pagination.StandardPagination",
     "PAGE_SIZE": 50,
     "DEFAULT_THROTTLE_CLASSES": [
         "rest_framework.throttling.AnonRateThrottle",
@@ -232,7 +242,7 @@ REST_FRAMEWORK: dict[str, Any] = {
         "anon": env_str("FINLUME_THROTTLE_ANON", default="60/minute"),
         "user": env_str("FINLUME_THROTTLE_USER", default="1000/hour"),
     },
-    "EXCEPTION_HANDLER": "apps.core.exceptions.api_exception_handler",
+    "EXCEPTION_HANDLER": "api.exceptions.api_exception_handler",
     # Monetary values travel as strings so no client parses them as floats.
     "COERCE_DECIMAL_TO_STRING": True,
 }

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import os
 from datetime import date
 from decimal import Decimal
@@ -8,6 +9,9 @@ import pytest
 from django.conf import settings
 from rest_framework.test import APIClient
 
+from apps.accounts.models import User
+from apps.organizations.models import Organization, OrganizationMembership, OrganizationRole
+from apps.workspaces.models import Workspace, WorkspaceMembership, WorkspaceRole
 from domain.financial_statements import (
     Currency,
     FinancialFactSet,
@@ -39,6 +43,54 @@ def pytest_collection_modifyitems(config, items):
 @pytest.fixture
 def api_client() -> APIClient:
     return APIClient()
+
+
+# --- Tenancy builders (fictional data only) ----------------------------------
+# Plain ORM writes, until the services that own these writes exist.
+
+
+@pytest.fixture
+def make_user(db):
+    numbers = itertools.count(1)
+
+    def build(**fields) -> User:
+        n = next(numbers)
+        return User.objects.create_user(f"user{n}", email=f"user{n}@example.com", **fields)
+
+    return build
+
+
+@pytest.fixture
+def make_organization(make_user):
+    """An organization whose given (or new) user is its admin."""
+
+    def build(admin: User | None = None, name: str = "Example Org") -> Organization:
+        admin = admin or make_user()
+        organization = Organization.objects.create(name=name, created_by=admin)
+        OrganizationMembership.objects.create(
+            organization=organization, user=admin, role=OrganizationRole.ADMIN
+        )
+        return organization
+
+    return build
+
+
+@pytest.fixture
+def make_workspace(make_user, make_organization):
+    """An organization workspace with ``owner`` (or a new user) as its owner."""
+
+    def build(organization: Organization | None = None, owner: User | None = None) -> Workspace:
+        owner = owner or make_user()
+        organization = organization or make_organization(admin=owner)
+        workspace = Workspace.objects.create(
+            name="Example Workspace", organization=organization, created_by=owner
+        )
+        WorkspaceMembership.objects.create(
+            workspace=workspace, user=owner, role=WorkspaceRole.OWNER
+        )
+        return workspace
+
+    return build
 
 
 @pytest.fixture

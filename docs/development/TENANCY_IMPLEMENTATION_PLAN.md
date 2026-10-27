@@ -158,70 +158,48 @@ organization-admin power:
 
 ## 4. Access control: one resolver, one mixin
 
-### `backend/services/access/resolvers.py` (no DRF imports)
+### [`services/access/resolvers.py`](../../backend/services/access/resolvers.py) (no DRF imports)
 
-```python
-_RANK = {WorkspaceRole.VIEWER: 0, WorkspaceRole.EDITOR: 1, WorkspaceRole.OWNER: 2}
+`require_workspace_role(user, workspace_id, minimum)` loads the caller's membership with its
+workspace and organization joined, in **one query** on the unique `(user, workspace)` index.
+No membership → `Http404`, so existence is not revealed. A lower role → `PermissionDenied`
+(403). `require_organization_role` follows the same pattern for organization endpoints. The
+caller's workspace list needs no separate helper: it is their memberships with the workspace
+joined, and each membership already carries its role.
 
-def require_workspace_role(user: User, workspace_id: UUID, minimum: WorkspaceRole) -> WorkspaceMembership:
-    """One query: the caller's membership joined to its workspace.
-
-    No membership → Http404, so existence is not revealed.
-    Membership with a lower role → PermissionDenied (403).
-    """
-    membership = (
-        WorkspaceMembership.objects.select_related("workspace")
-        .filter(user=user, workspace__public_id=workspace_id)
-        .first()
-    )
-    if membership is None:
-        raise Http404
-    if _RANK[membership.role] < _RANK[minimum]:
-        raise PermissionDenied
-    return membership
-
-def workspaces_for(user: User) -> QuerySet[Workspace]:
-    return Workspace.objects.filter(memberships__user=user).annotate(my_role=F("memberships__role"))
-```
-
-`require_organization_role` follows the same pattern for organization endpoints. The existing
+The existing
 error handler ([`api/exceptions.py`](../../backend/api/exceptions.py)) already maps
 Django's `Http404` and `PermissionDenied` to the standard envelope, so **no new error-mapping
 code** is needed for them. The only addition is `services/errors.py` with a `ConflictError`
 (for I3 and I4), mapped once to `409 conflict`.
 
-### `apps/workspaces/scoping.py`: the one helper other apps import
+### [`apps/workspaces/api/scoping.py`](../../backend/apps/workspaces/api/scoping.py): the base every tenant view inherits
 
-```python
-class WorkspaceScopedMixin:
-    """Resolves the workspace once per request and scopes every queryset to it."""
-    write_role = WorkspaceRole.EDITOR  # an owner-only view sets OWNER
-
-    def initial(self, request, *args, **kwargs):
-        super().initial(request, *args, **kwargs)  # authentication, permissions, throttles
-        minimum = WorkspaceRole.VIEWER if request.method in SAFE_METHODS else self.write_role
-        self.membership = require_workspace_role(request.user, kwargs["workspace_id"], minimum)
-        self.workspace = self.membership.workspace
-
-    def get_queryset(self):
-        return super().get_queryset().filter(workspace=self.workspace)
-```
+`WorkspaceScopedView` runs `require_workspace_role` once in `initial()`, after
+authentication, and keeps `self.membership` and `self.workspace`. Reads need `read_role`
+(viewer), writes need `write_role` (editor by default, owner for workspace settings and
+members), and a view overrides `required_role(method)` for anything finer. `self.scoped(qs)`
+filters a tenant queryset to the workspace.
 
 Every tenant view in steps 2–8 (statements, documents, imports, analyses, reports) inherits
-this mixin. Downloads, exports and future background jobs call `require_workspace_role` with
+this base. Downloads, exports and future background jobs call `require_workspace_role` with
 the initiating user before touching data. The proposal's flow (authenticate → load → check
 membership → check role) therefore runs in one query, followed by a scoped object fetch.
 
 ### Query budget per request
 
-These are enforced with pytest-django's `django_assert_num_queries`, with no new dependency.
+These are enforced by the `assert_app_queries` test fixture, with no new dependency. It counts
+the endpoint's own queries and ignores per-request plumbing that every authenticated call
+pays: the session read, the user load, transaction savepoints, and the session write that
+renews the sliding 8-hour expiry.
 
-| Request | Queries beyond session and user |
+| Request | App queries (measured in PR 1c) |
 |---|---|
-| Any workspace-scoped detail (`GET /workspaces/{id}/…/{obj}/`) | 1 membership + 1 object |
-| Workspace-scoped list | 1 membership + 1 page + 1 count |
-| `GET /workspaces/` (my workspaces, with my role) | 1 page + 1 count |
-| `GET /workspaces/{id}/members/` | 1 membership + 1 page (`select_related("user")`) + 1 count |
+| `GET /workspaces/{id}/` | 1: membership + workspace + organization, joined |
+| Any later workspace-scoped detail (`GET /workspaces/{id}/…/{obj}/`) | 1 access + 1 object |
+| Workspace-scoped list | 1 access + 1 count + 1 page |
+| `GET /workspaces/` (my workspaces, with my role) | 1 count + 1 page |
+| `GET /workspaces/{id}/members/` | 1 access + 1 count + 1 page (users joined) |
 
 Email lookups (login, adding an organization member) filter through
 `alias(email_lower=Lower("email")).filter(email_lower=…)`, so they use the existing
@@ -279,7 +257,7 @@ backend/
 │   ├── __init__.py              # layer rules and the capability list
 │   ├── errors.py                # ConflictError → 409 conflict
 │   ├── access/
-│   │   └── resolvers.py         # require_workspace_role, require_organization_role, workspaces_for
+│   │   └── resolvers.py         # require_workspace_role, require_organization_role
 │   ├── accounts/
 │   │   └── registration.py      # register_user, ensure_personal_workspace (I1)
 │   ├── organizations/
@@ -303,7 +281,7 @@ backend/
 │   ├── organizations/           # models, admin, migrations/
 │   │   └── api/                 # serializers, views, urls
 │   ├── workspaces/              # models, admin, migrations/ (incl. personal-workspace backfill)
-│   │   └── api/                 # scoping.py (WorkspaceScopedMixin), serializers, views, urls
+│   │   └── api/                 # scoping.py (WorkspaceScopedView), serializers, views, urls
 │   └── audit/                   # models (AuditEvent.record), admin, migrations/
 ├── config/
 │   ├── settings/base.py         # INSTALLED_APPS: + organizations, workspaces, audit
@@ -358,9 +336,9 @@ code, to keep the work small.
 | **0. Decide** | ADR-0008 *Organizations and workspace tenancy* (this design); update DATA_MODEL §2–4, DOMAIN_BOUNDARIES §2–3 (`organizations` moves from Future to Phase 1, `workspaces` becomes its own app per A7) and PRODUCT_SCOPE FR-004 ("business workspace" becomes "organization workspace") | Reviewed and accepted; records the §10 decisions | docs only |
 | **1a. Tenancy models** — *implemented 2026-10-27; 170 tests green on SQLite and PostgreSQL* | `PublicModel`; `Organization`, `OrganizationMembership`, `Workspace`, `WorkspaceMembership` and their migrations; a data migration giving every existing user a personal workspace and owner membership; `services/access/resolvers.py`, `services/errors.py`; read-only admin for the four models; user deletion disabled in the admin | Constraint tests (one owner kind, unique personal workspace, unique memberships, CHECKs) pass on PostgreSQL; the data migration is tested forwards, including re-running it on users who already have a workspace; `require_workspace_role` returns 404 for non-members and 403 for a role that is too low, using one query; the admin cannot delete or edit tenancy rows | ~170 lines |
 | **1b. Authentication and audit** — *implemented 2026-10-27; 194 tests green on SQLite and PostgreSQL* | ADR-0007 in code: `EmailBackend`, an email non-blank CHECK, an `authenticate_header` subclass (`401`), login throttles (IP and email), `SESSION_COOKIE_AGE` and `SESSION_SAVE_EVERY_REQUEST`; auth endpoints; `register_user` and `ensure_personal_workspace` on sign-in (I1); the `audit` app | Registering creates exactly one personal workspace; a `createsuperuser` account gets one on first sign-in; the sixth failed login per minute gets `429`; unauthenticated calls get `401` with `WWW-Authenticate: Session`; `test_anonymous_requests_are_rejected_by_default` is updated; login events are recorded without passwords | ~180 lines |
-| **1c. Workspace API** | `WorkspaceScopedMixin`; workspace and workspace-member endpoints; `services/workspaces/` (I3, I5, I6); the `recover_workspace_owner` command | Full role matrix; non-member gets `404`; viewer gets `403` on writes; creating a workspace makes its creator the owner, and a failure part-way leaves nothing behind; last owner cannot leave or be demoted, including under concurrency; personal workspace rejects members; inactive users cannot be added; recovery refuses every unsafe case and always writes its audit event; query budgets in §4 hold | ~210 lines |
+| **1c. Workspace API** — *implemented 2026-10-27; 237 tests green on PostgreSQL, including the concurrency test* | `WorkspaceScopedMixin`; workspace and workspace-member endpoints; `services/workspaces/` (I3, I5, I6); the `recover_workspace_owner` command | Full role matrix; non-member gets `404`; viewer gets `403` on writes; creating a workspace makes its creator the owner, and a failure part-way leaves nothing behind; last owner cannot leave or be demoted, including under concurrency; personal workspace rejects members; inactive users cannot be added; recovery refuses every unsafe case and always writes its audit event; query budgets in §4 hold | ~210 lines |
 | **1d. Organization API** | Organization and organization-member endpoints; `services/organizations/` (I2, I4) | Removing a member from the organization removes their workspace memberships in it, and is blocked if they are the last owner of one; last admin is protected; the organization admin cannot read a workspace they are not a member of | ~150 lines |
-| **Steps 2–8** | As in the [MVP plan](MVP_IMPLEMENTATION_PLAN.md). Every new tenant model carries a `workspace` FK, and every tenant view inherits `WorkspaceScopedMixin` | The isolation tests below are repeated for each new resource | — |
+| **Steps 2–8** | As in the [MVP plan](MVP_IMPLEMENTATION_PLAN.md). Every new tenant model carries a `workspace` FK, and every tenant view inherits `WorkspaceScopedView` | The isolation tests below are repeated for each new resource | — |
 
 ### Security tests that must exist by the end of 1d
 

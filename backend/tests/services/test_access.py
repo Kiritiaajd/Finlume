@@ -8,7 +8,7 @@ from django.http import Http404
 
 from apps.organizations.models import OrganizationMembership, OrganizationRole
 from apps.workspaces.models import WorkspaceMembership, WorkspaceRole
-from services.access import require_organization_role, require_workspace_role, workspaces_for
+from services.access import require_organization_role, require_workspace_role
 
 pytestmark = pytest.mark.django_db
 
@@ -88,15 +88,3 @@ def test_organization_role_check(make_organization, make_user):
         require_organization_role(member, organization.public_id, OrganizationRole.ADMIN)
     with pytest.raises(Http404):
         require_organization_role(make_user(), organization.public_id, OrganizationRole.MEMBER)
-
-
-def test_workspaces_for_lists_only_own_workspaces_with_the_callers_role(
-    member_with_role, make_workspace, django_assert_num_queries
-):
-    user, mine = member_with_role(WorkspaceRole.VIEWER)
-    make_workspace()  # someone else's
-
-    with django_assert_num_queries(1):
-        rows = [(w.pk, w.my_role) for w in workspaces_for(user)]
-
-    assert rows == [(mine.pk, WorkspaceRole.VIEWER)]

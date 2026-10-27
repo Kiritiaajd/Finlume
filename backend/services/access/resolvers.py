@@ -14,25 +14,14 @@ needed per request.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
 from uuid import UUID
 
 from django.core.exceptions import PermissionDenied
-from django.db.models import F, QuerySet
 from django.http import Http404
 
 from apps.accounts.models import User
 from apps.organizations.models import OrganizationMembership, OrganizationRole
-from apps.workspaces.models import Workspace, WorkspaceMembership, WorkspaceRole
-
-if TYPE_CHECKING:
-    # Type-checking only: django-stubs-ext is a development dependency.
-    from django_stubs_ext import WithAnnotations
-
-
-class _CallerRole(TypedDict):
-    my_role: str
-
+from apps.workspaces.models import WorkspaceMembership, WorkspaceRole
 
 _WORKSPACE_RANK = {WorkspaceRole.VIEWER: 0, WorkspaceRole.EDITOR: 1, WorkspaceRole.OWNER: 2}
 _ORGANIZATION_RANK = {OrganizationRole.MEMBER: 0, OrganizationRole.ADMIN: 1}
@@ -41,9 +30,11 @@ _ORGANIZATION_RANK = {OrganizationRole.MEMBER: 0, OrganizationRole.ADMIN: 1}
 def require_workspace_role(
     user: User, workspace_id: UUID, minimum: WorkspaceRole
 ) -> WorkspaceMembership:
-    """Return the caller's membership, with its workspace loaded, or raise."""
+    """Return the caller's membership, with its workspace and organization loaded, or raise."""
     try:
-        membership = WorkspaceMembership.objects.select_related("workspace").get(
+        # One query; the organization join is on its primary key and lets callers
+        # render the workspace without a second lookup.
+        membership = WorkspaceMembership.objects.select_related("workspace__organization").get(
             user=user, workspace__public_id=workspace_id
         )
     except WorkspaceMembership.DoesNotExist:
@@ -66,12 +57,3 @@ def require_organization_role(
     if _ORGANIZATION_RANK[OrganizationRole(membership.role)] < _ORGANIZATION_RANK[minimum]:
         raise PermissionDenied
     return membership
-
-
-def workspaces_for(user: User) -> QuerySet[WithAnnotations[Workspace, _CallerRole]]:
-    """The workspaces the user is a member of, each annotated with ``my_role``.
-
-    One query. The annotation reuses the join made by the filter, so
-    ``my_role`` is the caller's own role in that workspace.
-    """
-    return Workspace.objects.filter(memberships__user=user).annotate(my_role=F("memberships__role"))

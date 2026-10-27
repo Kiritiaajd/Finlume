@@ -83,7 +83,7 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - Role CHECK constraints on both membership tables.
   - The abstract `PublicModel`, which holds the standard columns.
 - **Data migration** `workspaces.0002`: it gives every existing user a personal workspace and owner membership. It runs in batches and is idempotent.
-- **`services.access`:** `require_workspace_role`, `require_organization_role` and `workspaces_for`. Each takes one indexed query. A non-member gets `404` and a role that is too low gets `403`. Organization admins get no implicit workspace access.
+- **`services.access`:** `require_workspace_role` and `require_organization_role`. Each takes one indexed query. A non-member gets `404` and a role that is too low gets `403`. Organization admins get no implicit workspace access.
 - **`services.errors.ConflictError`**, returned by the API as `409 conflict` with its safe message.
 - **Read-only admin** for the four tenancy models (`apps.core.admin.ReadOnlyModelAdmin`). Users can no longer be deleted from the admin (ADR-0008 §7).
 
@@ -97,8 +97,20 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - A new database constraint requires a non-blank email (`accounts.0002`).
 - **Audit app:** `AuditEvent`, which is append-only and carries a pseudonymous `actor_label` and the request ID, plus `AuditEvent.record()`. Registration, sign-in and failed sign-in are recorded. A failed sign-in keeps only the normalised email, never the password.
 
+- **Workspace API (MVP PR 1c, ADR-0008):**
+  - `GET` and `POST workspaces/`, `GET` and `PATCH workspaces/{id}/`, `GET` and `POST workspaces/{id}/members/`, and `PATCH` and `DELETE workspaces/{id}/members/{user_id}/`.
+  - `WorkspaceScopedView` (`apps/workspaces/api/scoping.py`) authorises each request with one query and scopes querysets. Every later tenant view inherits it.
+  - Use cases are in `services/workspaces`. Creating a workspace makes its creator the owner in the same transaction. Only active members of the organization can be added, and personal workspaces take no members.
+  - The last owner cannot be demoted or removed. The workspace row is locked, so concurrent demotions cannot both succeed; a PostgreSQL test checks this.
+  - Members may leave; owners may remove others.
+  - Every change is audited.
+- **`manage.py recover_workspace_owner`:** an operator-only, audited command for workspaces whose owners are all deactivated. It refuses while any owner is active, for personal workspaces, and for successors outside the organization. A reason is required.
+- **Shared API helpers:** `api.pagination.paginated_response` returns one page in two queries. `api.users.request_user` returns the signed-in user, typed.
+- **Test fixture `assert_app_queries`:** asserts an endpoint's own query count and ignores per-request session and transaction plumbing.
+
 ### Changed
 
+- `require_workspace_role` now also joins the workspace's organization, still in one query. `workspaces_for` was removed: the workspace list reads the caller's memberships directly.
 - **Unauthenticated API requests now get `401`** with `WWW-Authenticate: Session`, instead of `403`. Signed-in users without permission, and CSRF failures, still get `403`.
 - `User.__str__` returns the email address.
 - Ruff's `S105` and `S106` rules (hard-coded passwords) are not applied to tests, because fixture passwords are fictional.

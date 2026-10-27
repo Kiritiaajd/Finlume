@@ -46,10 +46,10 @@ How Finlume creates, changes, exports and deletes data, and how long it keeps da
 
 A correction to a validated statement never overwrites it:
 
-1. A new `FinancialStatement` is created with `version = n + 1`, `supersedes` pointing to version `n`, and a required `restatement_reason`.
-2. Once the new version is validated, version `n` becomes `superseded`. A partial unique constraint guarantees that only one version is non-superseded.
+1. A new `FinancialStatement` is created as a `draft` with `version = n + 1`, `supersedes` pointing to version `n`, and a required `restatement_reason`. Version `n` stays `validated` and in use meanwhile. The database ensures version `n + 1` can only restate version `n` of the same statement.
+2. When the draft is validated, version `n` becomes `superseded` in the same transaction. Partial unique indexes allow at most one `validated` and at most one `draft` version per statement and period. They cannot be deferred, so version `n` is superseded **before** version `n + 1` is marked validated.
 3. Existing analysis runs keep their links to version `n`'s facts, so they reproduce exactly.
-4. New analyses use the latest non-superseded version. The dashboard shows when a newer version exists than the one a saved analysis used.
+4. New analyses use the latest **validated** version, never a draft restatement. The dashboard shows when a newer version exists than the one a saved analysis used.
 
 ## 5. Export (MVP, FR-054)
 

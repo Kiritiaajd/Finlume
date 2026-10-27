@@ -68,7 +68,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 
 ### FA-02 — No rule for assembling one fact set from separate statements (Needs approval)
 
-- **Evidence:** [DATA_MODEL §4.6](../data/DATA_MODEL.md#46-financialstatement-mvp) stores one `FinancialStatement` per statement type, each with its own `period_start`, `period_end` and `currency`. §6 says "an analysis combines facts with identical period bounds only". Nothing says what `period_start` a balance sheet carries, because a balance sheet is a position at a date. The engine's `FinancialFactSet` takes exactly one `ReportingPeriod` and one `Currency` (`domain/financial_statements/facts.py`).
+- **Evidence:** [DATA_MODEL §4.6](../data/DATA_MODEL.md#46-financialstatement-implemented) stores one `FinancialStatement` per statement type, each with its own `period_start`, `period_end` and `currency`. §6 says "an analysis combines facts with identical period bounds only". Nothing says what `period_start` a balance sheet carries, because a balance sheet is a position at a date. The engine's `FinancialFactSet` takes exactly one `ReportingPeriod` and one `Currency` (`domain/financial_statements/facts.py`).
 - **Impact:** if a balance sheet were stored with `period_start = period_end`, it would never combine with the income statement. Return on equity, return on assets and every other cross-statement ratio would then always be "missing input", and FR-030 could not be met for persisted analyses.
 - **Recommended default:**
   1. A balance sheet is recorded against the **reporting period it closes**: the same start, end and type as the income statement, with figures as of `period_end`. This matches `ReportingPeriod.as_of`.

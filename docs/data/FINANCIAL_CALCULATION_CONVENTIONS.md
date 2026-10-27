@@ -62,7 +62,7 @@ caller's decimal context. Example: `normalize_amount(Decimal("3.25"), Scale.LAKH
 Decimal("325000")`.
 
 Raw `reported_amount` values keep their reported scale. Normalised `FinancialFact` values are
-always in base units (see the [data model](DATA_MODEL.md#48-financialfact-mvp)).
+always in base units (see the [data model](DATA_MODEL.md#48-financialfact-implemented)).
 
 ### Reporting period
 

@@ -14,11 +14,11 @@ Installs must be reproducible across Windows development machines and Linux CI, 
 
   ```powershell
   # in backend/
-  python -m uv pip compile pyproject.toml --universal --python-version 3.10 --generate-hashes -o requirements/base.txt
-  python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.10 --generate-hashes -o requirements/dev.txt
+  python -m uv pip compile pyproject.toml --universal --python-version 3.12 --generate-hashes -o requirements/base.txt
+  python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.12 --generate-hashes -o requirements/dev.txt
   ```
 
-  `--universal` produces one lock with environment markers that is valid on every OS and every Python ≥ 3.10. `--generate-hashes` pins artefact hashes.
+  `--universal` produces one lock with environment markers that is valid on every OS and every supported Python (≥ 3.12 since 2026-10-27; originally ≥ 3.10). `--generate-hashes` pins artefact hashes.
 - **Installation uses plain pip**: `python -m pip install --require-hashes -r requirements/dev.txt` (or `base.txt` for runtime only). uv is needed only to re-lock.
 - CI job **"Lock files match pyproject.toml"** recompiles both locks over copies of themselves, so existing pins are kept as preferences, and fails on any difference.
 - `djangorestframework-stubs` stays on **3.16.x** while the runtime is DRF 3.18. The 3.18 stubs require django-stubs 6.x (Django 6), which conflicts with Django 5.2 LTS. Stubs affect type checking only.
@@ -27,7 +27,7 @@ Installs must be reproducible across Windows development machines and Linux CI, 
 
 ### Positive
 - Byte-for-byte reproducible installs, with hash verification against tampered packages.
-- One lock serves Windows, macOS, Linux and Python 3.10–3.13.
+- One lock serves Windows, macOS, Linux and every supported Python version.
 - No tool beyond pip is needed to install; no second, tool-managed virtual environment.
 
 ### Negative
@@ -45,5 +45,6 @@ Installs must be reproducible across Windows development machines and Linux CI, 
 ## Revisit when
 
 - The team adopts uv for all workflows. Moving to `uv.lock` is then a small change.
-- The Python floor is raised. Re-lock with the new `--python-version`.
+- The Python floor is raised. Re-lock with the new `--python-version` (done for 3.12 on 2026-10-27).
+- Dependabot opens update pull requests (configured in `.github/dependabot.yml` since 2026-10-27). If its edits to the hashed locks repeatedly fail the lock-consistency job, switch it to security updates only and re-lock by hand.
 - Frontend apps arrive. They get their own JavaScript lock files (e.g. `package-lock.json`) under `apps/`.

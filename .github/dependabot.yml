@@ -1,0 +1,52 @@
+# Dependabot version and security updates.
+#
+# Every update arrives as a pull request and must pass CI, including the
+# "Lock files match pyproject.toml" job. Locking policy:
+# docs/decisions/ADR-0004-dependency-management.md.
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      python-minor-and-patch:
+        update-types: [minor, patch]
+    ignore:
+      # Stay on the Django 5.2 LTS line; moving to Django 6 is its own decision
+      # (ADR-0002). The stubs are tied to the Django and DRF lines in use.
+      - dependency-name: django
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: django-stubs
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: django-stubs-ext
+        update-types: [version-update:semver-major, version-update:semver-minor]
+      - dependency-name: djangorestframework-stubs
+        update-types: [version-update:semver-major, version-update:semver-minor]
+
+  - package-ecosystem: npm
+    directory: /apps/web
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      web-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Expo pins compatible React Native package versions per SDK; version bumps go
+  # through `npx expo install`. A limit of 0 keeps security updates only.
+  - package-ecosystem: npm
+    directory: /apps/mobile
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

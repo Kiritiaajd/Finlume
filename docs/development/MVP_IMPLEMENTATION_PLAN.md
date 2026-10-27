@@ -24,12 +24,12 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
 
 ## Step 0 — Prerequisites
 
-| Task | Detail | Done when |
-|---|---|---|
-| Python move (A1, recommended) | Install Python 3.13; recreate `.venv`; set `requires-python >=3.12`, ruff `py312`, mypy `3.12`; re-lock with `--python-version 3.12`; CI matrix `3.12` and `3.13` | All gates green; dev `pip-audit` clean |
-| PostgreSQL available (A11) | `docker compose up -d db` (port 55432 by default), or a dedicated role and database you own. Development settings now require PostgreSQL | `pytest` passes with `FINLUME_TEST_DB_ENGINE=postgresql`, recorded in the PR |
-| CI running (A10) | Push a branch; enable branch protection, private vulnerability reporting and Dependabot | All three CI jobs green |
-| Step 1 decisions | A3 (401/403), A5 (login identifier), A6 (session policy), A7 (app name), A9 (login protection), A8 (audit retention) | Recorded in PRODUCT_SCOPE §10 or an ADR |
+| Task | Detail | Done when | Status (2026-10-27) |
+|---|---|---|---|
+| Python move (A1, recommended) | Install Python 3.13; recreate `.venv`; set `requires-python >=3.12`, ruff `py312`, mypy `3.12`; re-lock with `--python-version 3.12`; CI matrix `3.12` and `3.13` | All gates green; dev `pip-audit` clean | Done locally; CI on the branch pending |
+| PostgreSQL available (A11) | `docker compose up -d db` (port 55432 by default), or a dedicated role and database you own. Development settings now require PostgreSQL | `pytest` passes with `FINLUME_TEST_DB_ENGINE=postgresql`, recorded in the PR | Done in CI (PostgreSQL 17) |
+| CI running (A10) | Push a branch; enable branch protection, private vulnerability reporting and Dependabot | All CI jobs green | CI green; Dependabot configured; repository settings pending |
+| Step 1 decisions | A3 (401/403), A5 (login identifier), A6 (session policy), A7 (app name), A9 (login protection), A8 (audit retention) | Recorded in PRODUCT_SCOPE §10 or an ADR | Done: [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md) and [ARCHITECTURE_DECISIONS](../architecture/ARCHITECTURE_DECISIONS.md#smaller-conventions-decided-2026-10-27) |
 
 ## Step 1 — Workspace ownership and authorisation
 
@@ -39,7 +39,7 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
 - **App:** `audit`, holding `AuditEvent` (append-only, no financial values, `request_id` from the request context).
 - **Package:** `backend/application/` is introduced, with `authorization.py` (`require_role(user, workspace, minimum_role)`, `workspaces_for(user)`) and the workspace use cases (create, invite, change role, remove member, transfer ownership).
 - **Endpoints:** register, login, logout, `GET me`, CSRF cookie bootstrap; `GET/POST /workspaces/`, `GET/PATCH /workspaces/{id}/`, `GET/POST /workspaces/{id}/members/`, `PATCH/DELETE /workspaces/{id}/members/{id}/`.
-- **Security:** a scoped login throttle (A9); 401 or 403 per A3; session lifetime per A6; `auth.login_failed`, `auth.login`, `membership.*` audit events.
+- **Security** ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)): email sign-in with a non-blank email constraint; scoped login throttles, 5/minute per IP and per email; `401` with a `Session` challenge; an 8-hour sliding session; `auth.login_failed`, `auth.login`, `membership.*` audit events.
 - **Acceptance:**
   - Registering creates exactly one personal workspace.
   - The last owner cannot leave or be demoted.
@@ -176,6 +176,6 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
 migration, and the creation of a personal workspace at registration.** It is test-first and
 verified on PostgreSQL.
 
-It needs decisions A7 (app name) and A5 (login identifier). The Python move (A1) and a
-PostgreSQL environment (A11) should be settled first, so the first real migration is
-generated on the final interpreter and checked on the real database.
+Decisions A7 (`workspaces`) and A5 (email sign-in) are made. The Python move (A1) is done,
+and PostgreSQL runs in CI (A11). Once this branch's CI is green on 3.12 and 3.13, the first
+real migration can be generated on the final interpreter and checked on the real database.

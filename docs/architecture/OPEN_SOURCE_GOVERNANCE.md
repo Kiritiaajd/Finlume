@@ -61,7 +61,7 @@ Related: [CONTRIBUTING.md](../../CONTRIBUTING.md), [CODE_OF_CONDUCT.md](../../CO
 2. **Minimalism.** Add a dependency only when it removes meaningful risk or effort. Example: Finlume reads environment variables with a small typed helper instead of adding a configuration library.
 3. **Maintenance.** Prefer actively maintained, widely used packages. Prefer an LTS line for frameworks (Django 5.2 LTS).
 4. **Reproducibility.** `backend/pyproject.toml` declares dependencies; the hash-pinned `backend/requirements/*.txt` lock files are generated with `uv pip compile` and never edited by hand ([ADR-0004](../decisions/ADR-0004-dependency-management.md)). CI fails if the locks drift from `pyproject.toml`.
-5. **Vulnerability response.** `pip-audit` runs in CI. A runtime advisory blocks merging until the dependency is upgraded or the advisory is documented as not applicable. Example: DRF moved from 3.16.1 to 3.18.3 for that reason. The development-only `filelock` advisory that affects Python 3.10 alone is a known exception, pending the decision to raise the Python floor to 3.12.
+5. **Vulnerability response.** `pip-audit` runs in CI. A runtime advisory blocks merging until the dependency is upgraded or the advisory is documented as not applicable. Example: DRF moved from 3.16.1 to 3.18.3 for that reason. There are no known exceptions. Dependabot opens weekly update pull requests (`.github/dependabot.yml`), and each must pass CI like any other change.
 6. **Frontend packages** (once introduced) follow the same rules, with a committed lock file and `npm audit` (or an equivalent) in CI.
 
 ## 8. Data in the repository
@@ -100,4 +100,3 @@ application itself.
 | Security contact email and Code of Conduct enforcement contact | Maintainer |
 | Enable private vulnerability reporting, Dependabot alerts, secret scanning and branch protection on `main` | Maintainer (repository settings) |
 | Hosting model: self-host only, or also an official hosted instance (which brings additional privacy-policy and terms obligations) | Maintainer |
-| Raise the Python floor from 3.10 (end of life October 2026) to 3.12 | Maintainer |

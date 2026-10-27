@@ -24,6 +24,7 @@ context, the decision, alternatives considered, and consequences.
 | [ADR-0004](../decisions/ADR-0004-dependency-management.md) | Dependency management and lock files | Accepted |
 | [ADR-0005](../decisions/ADR-0005-private-document-storage.md) | Private document storage | Accepted |
 | [ADR-0006](../decisions/ADR-0006-client-stack.md) | Web and mobile client stack | Accepted (direction; not yet implemented) |
+| [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md) | Authentication, sessions and login protection for the MVP | Accepted (implemented in MVP step 1) |
 
 ### ADR-0001 — Modular monolith
 
@@ -43,11 +44,11 @@ The backend uses **Python, Django 5.2 LTS, Django REST Framework and PostgreSQL*
 supplies a mature ORM and migrations, authentication, an admin, and strong security
 defaults. DRF supplies serializers, versioning, throttling and pagination. PostgreSQL's
 `numeric` type preserves exact decimals. Django 5.2 is the current LTS, with security
-support until April 2028, and it supports the Python 3.10 interpreter available today.
-Django 6.x requires Python 3.12+. Locked versions: Django 5.2.18, DRF 3.18.3
+support until April 2028. Locked versions: Django 5.2.18, DRF 3.18.3
 (chosen because it fixes request-parsing CVEs present in 3.16), psycopg 3.3.6. FastAPI and
-Java are explicitly out of scope as the primary backend. The Python floor is 3.10 for now;
-3.12 or 3.13 is recommended (see pending decisions).
+Java are explicitly out of scope as the primary backend. The Python floor is **3.12**
+(raised from 3.10 on 2026-10-27), and CI tests 3.12 and 3.13. That also leaves Django 6.x
+open as a later upgrade.
 
 ### ADR-0003 — Deterministic calculation engine
 
@@ -92,16 +93,31 @@ Phase 1, and mobile data features after the v1 API stabilises post-MVP. In
 development the web app reaches the API through the Vite dev proxy and in production
 through the same-origin reverse proxy, so no CORS dependency is needed for the web client.
 
+### ADR-0007 — Authentication and sessions (accepted 2026-10-27)
+
+Users sign in to the API with their **email address** and a password, using Django
+sessions. Unauthenticated requests get **`401`** with a `WWW-Authenticate: Session`
+challenge, while authenticated requests without permission get `403`. Sessions expire after
+**8 hours of inactivity** (sliding, configurable). Login is limited with DRF's built-in
+scoped throttles: **5 attempts per minute** per client IP and per email, with audit events
+for each attempt and no new dependency. The Django admin login is protected at deployment
+by a non-default path and reverse-proxy restrictions.
+
+### Smaller conventions decided 2026-10-27
+
+- The MVP app for workspaces and memberships is named **`workspaces`**. `organizations` is kept for a future grouping of workspaces (FA-26).
+- The retention defaults in [DATA_LIFECYCLE_AND_RETENTION §7](../data/DATA_LIFECYCLE_AND_RETENTION.md#7-retention-periods) are approved: a 30-day workspace deletion grace period, 1 year for audit events, 30 days for logs and 35 days for backups. All of them are configurable by self-hosters (D-07).
+
 ## Decisions pending approval
 
 These are open and need a maintainer decision before or during the phase noted.
 
 | # | Decision | Context | Needed by |
 |---|----------|---------|-----------|
-| 1 | **Raise the Python floor to 3.12** | Python 3.10 reaches end-of-life in October 2026. Development-only `filelock` advisories cannot be fixed on 3.10 because the fixed release needs 3.11+. Django 6.x requires 3.12+. Raising the floor needs a newer local interpreter. | As soon as practical, ideally before Phase 1 work starts |
+| 1 | ~~Raise the Python floor to 3.12~~ | **Done 2026-10-27** ([ADR-0002 update](../decisions/ADR-0002-backend-stack.md#update-2026-10-27-python-floor-raised-to-312)). | — |
 | 2 | **Mobile authentication** | Session cookies suit the same-origin web app, but not native apps. Candidates are expiring, revocable API tokens or OAuth 2.0 / OIDC. | Before the mobile phase |
 | 3 | **Foreign-exchange policy** | The MVP analyses each fact set in a single currency and never converts. Cross-currency comparison needs a rate source, rate dates and a methodology. | Before multi-currency comparison or portfolios |
 | 4 | **Line-item taxonomy extension** | The MVP taxonomy is a fixed `LineItem` enum. Industry-specific items (banks, insurers) and user-defined mappings need an extension model. | Late Phase 1 / Phase 2 |
-| 5 | **Retention periods** | Defaults for deleted-account grace periods, audit-event retention and backup retention. See [DATA_LIFECYCLE_AND_RETENTION.md](../data/DATA_LIFECYCLE_AND_RETENTION.md). | Before any hosted deployment |
+| 5 | ~~Retention periods~~ | **Decided 2026-10-27**: the proposed defaults are approved (see above). | — |
 | 6 | **Hosting model** | Self-hosted only, or also an official hosted instance. A hosted instance brings legal, privacy and operational obligations. | Before a public launch |
 | 7 | **Security and Code of Conduct contacts** | A private reporting channel (GitHub private vulnerability reporting must be enabled) and an enforcement contact for the Code of Conduct. | Before inviting outside contributors |

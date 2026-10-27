@@ -221,7 +221,7 @@ The MVP will **not**:
 | NFR-052 | Performance | List endpoints are paginated: 50 items by default, at most 200. | Implemented (default pagination) |
 | NFR-060 | Portability | Runs on Windows, macOS and Linux for development, and on any Linux host with PostgreSQL for deployment. No cloud-vendor lock-in. | Implemented (dev); MVP (deployment guide) |
 | NFR-061 | Portability | Can be self-hosted without external paid services. | Design constraint |
-| NFR-070 | Maintainability | CI runs formatting, linting, strict type checking, Django checks, migration drift checks, tests on PostgreSQL, and a dependency audit on every pull request. | Workflow written; **not yet run on GitHub** (nothing pushed) |
+| NFR-070 | Maintainability | CI runs formatting, linting, strict type checking, Django checks, migration drift checks, tests on PostgreSQL, and a dependency audit on every pull request. | Implemented (CI runs on GitHub; all jobs green, including the PostgreSQL tests) |
 | NFR-071 | Maintainability | Material architecture decisions are recorded as ADRs. | Implemented |
 | NFR-072 | Maintainability | Module dependency direction is API → application → domain, and infrastructure → domain. The domain imports nothing outward. | Implemented (domain rule) |
 
@@ -237,13 +237,13 @@ The MVP will **not**:
 
 | # | Decision | Notes |
 |---|----------|-------|
-| D-01 | Raise the Python floor from 3.10 to 3.12 | Python 3.10 reaches end of life in October 2026, and Django 6.x needs 3.12+. This requires every contributor to have Python 3.12+. |
+| D-01 | ~~Raise the Python floor from 3.10 to 3.12~~ | **Resolved 2026-10-27:** `requires-python >=3.12`; CI tests 3.12 and 3.13 ([ADR-0002 update](../decisions/ADR-0002-backend-stack.md#update-2026-10-27-python-floor-raised-to-312)). |
 | D-02 | Mobile authentication strategy | Token or OIDC-based. To be decided in an ADR when mobile work begins. |
 | D-03 | FX conversion policy | Rate source, rate date (period end or average) and how converted figures are labelled. |
 | D-04 | Multi-currency reporting | Whether an entity may report in different currencies across periods, and how comparisons are presented. |
 | D-05 | Taxonomy extension mechanism | Mapping IFRS, US GAAP and Ind AS line items to Finlume codes, and user-defined line items. |
 | D-06 | Average-balance metrics | ROE and ROA on average equity or assets need two consecutive periods. This depends on multi-period support. |
-| D-07 | Retention periods | Proposed defaults are in [Data lifecycle](../data/DATA_LIFECYCLE_AND_RETENTION.md) and need maintainer approval. |
+| D-07 | ~~Retention periods~~ | **Resolved 2026-10-27:** the defaults in [Data lifecycle §7](../data/DATA_LIFECYCLE_AND_RETENTION.md#7-retention-periods) are approved. |
 | D-08 | Hosted offering | Self-host only, or also an official hosted instance. This affects compliance scope. |
 | D-09 | Contact addresses | Email contacts for Code of Conduct and security reports. |
 | D-10 | Contribution sign-off | Developer Certificate of Origin (DCO) sign-off, or no sign-off requirement. |

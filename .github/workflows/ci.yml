@@ -24,7 +24,7 @@ jobs:
       fail-fast: false
       matrix:
         # Oldest supported and newest targeted Python versions.
-        python-version: ["3.10", "3.13"]
+        python-version: ["3.12", "3.13"]
     services:
       postgres:
         image: postgres:17-alpine
@@ -47,8 +47,8 @@ jobs:
       POSTGRES_HOST: localhost
       POSTGRES_PORT: "5432"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -76,8 +76,8 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - name: Install locked tooling
@@ -94,8 +94,8 @@ jobs:
       run:
         working-directory: apps/web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -114,8 +114,8 @@ jobs:
       run:
         working-directory: apps/mobile
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -133,8 +133,8 @@ jobs:
     name: Lock files match pyproject.toml
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.13"
       - name: Install uv from the dev lock
@@ -146,9 +146,9 @@ jobs:
         run: |
           cp requirements/base.txt /tmp/base.txt
           cp requirements/dev.txt /tmp/dev.txt
-          python -m uv pip compile pyproject.toml --universal --python-version 3.10 \
+          python -m uv pip compile pyproject.toml --universal --python-version 3.12 \
             --generate-hashes -o /tmp/base.txt -q
-          python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.10 \
+          python -m uv pip compile pyproject.toml --extra dev --universal --python-version 3.12 \
             --generate-hashes -o /tmp/dev.txt -q
           diff <(grep -v '^#' requirements/base.txt) <(grep -v '^#' /tmp/base.txt)
           diff <(grep -v '^#' requirements/dev.txt) <(grep -v '^#' /tmp/dev.txt)

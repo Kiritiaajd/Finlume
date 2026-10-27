@@ -54,7 +54,7 @@ states for them rather than invented data.
 
 ## Quick Start (backend)
 
-Requires Python 3.10+ (3.12 or 3.13 recommended) and Git. On Windows
+Requires Python 3.12 or 3.13 and Git. On Windows
 PowerShell:
 
 Development uses **PostgreSQL**. The documented option runs it with Docker Compose on

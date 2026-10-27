@@ -63,8 +63,8 @@ Every error response uses one envelope, produced by `apps.core.exceptions.api_ex
 |-------------|--------|------|
 | 400 | `validation_error` | Input failed validation. |
 | 400 | `parse_error` | Malformed JSON. |
-| 401 / 403 | `not_authenticated`, `authentication_failed` | Missing or invalid credentials. With session authentication, DRF answers `403`. |
-| 403 | `permission_denied` | Authenticated, but not allowed (e.g. not a member of the workspace). |
+| 401 | `not_authenticated`, `authentication_failed` | Missing or invalid credentials. The response carries `WWW-Authenticate: Session` ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)). **Until MVP step 1 implements this, DRF answers `403`.** |
+| 403 | `permission_denied` | Authenticated, but not allowed (e.g. a viewer attempting a write). A CSRF failure is also `403`. |
 | 404 | `not_found` | Unknown resource, or one the caller may not see. Existence is not revealed to callers without access. |
 | 405 | `method_not_allowed` | Wrong HTTP method. |
 | 406 | `not_acceptable` | Unsupported `Accept` header. |
@@ -108,7 +108,7 @@ Every response carries an `X-Request-ID` header. A caller-supplied `X-Request-ID
 
 ## Authentication and authorisation
 
-- Default authentication: `SessionAuthentication`.
+- Default authentication: `SessionAuthentication`. From MVP step 1, users sign in with their email address, and sessions expire after 8 hours of inactivity ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)).
 - Default permission: `IsAuthenticated`. Every endpoint requires a logged-in user unless it explicitly opts out; today only the health endpoint does.
 - **Web client:** Django session cookie plus CSRF. Unsafe methods send the token in the `X-CSRFToken` header. The SPA is served from the same origin as the API, through a reverse proxy in production and the Vite dev proxy locally, so CORS is not needed ([ADR-0006](../decisions/ADR-0006-client-stack.md)).
 - **Mobile client:** token-based authentication, to be decided by an ADR when the mobile phase begins.
@@ -120,6 +120,7 @@ Every response carries an `X-Request-ID` header. A caller-supplied `X-Request-ID
 |-------|---------|---------|
 | Anonymous | `60/minute` | `FINLUME_THROTTLE_ANON` |
 | Authenticated user | `1000/hour` | `FINLUME_THROTTLE_USER` |
+| Login, per client IP and per submitted email (from MVP step 1) | `5/minute` each | To be added in step 1 ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)) |
 
 Throttle state uses Django's default cache, which is per process. A multi-process deployment needs a shared cache before limits are exact (see [SCALABILITY_AND_DEPLOYMENT](../architecture/SCALABILITY_AND_DEPLOYMENT.md)). The health endpoint is not throttled.
 

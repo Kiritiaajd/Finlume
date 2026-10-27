@@ -14,6 +14,7 @@ A summary of all decisions, including smaller conventions that do not need their
 | [0004](ADR-0004-dependency-management.md) | Dependency management: pyproject.toml + hashed uv-compiled locks | Accepted |
 | [0005](ADR-0005-private-document-storage.md) | Private storage for uploaded financial documents | Accepted |
 | [0006](ADR-0006-client-stack.md) | Web and mobile client stack | Accepted (direction; not implemented) |
+| [0007](ADR-0007-authentication-and-sessions.md) | Authentication, sessions and login protection for the MVP | Accepted |
 
 ## When to write an ADR
 

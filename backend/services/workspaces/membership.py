@@ -23,12 +23,18 @@ from services.errors import ConflictError
 def add_member(
     *, actor: User, workspace: Workspace, user_id: UUID, role: WorkspaceRole
 ) -> WorkspaceMembership:
-    """Add an active member of the workspace's organization (invariants I2, I6)."""
+    """Add an active member of the workspace's organization (invariants I2, I6).
+
+    The organization membership is locked, so a concurrent removal from the
+    organization either waits for this insert and removes it too, or wins and
+    this call finds no membership.
+    """
     if workspace.organization_id is None:
         raise ConflictError("A personal workspace cannot have other members.")
     try:
         user = (
-            OrganizationMembership.objects.select_related("user")
+            OrganizationMembership.objects.select_for_update(of=("self",))
+            .select_related("user")
             .get(
                 organization_id=workspace.organization_id,
                 user__public_id=user_id,

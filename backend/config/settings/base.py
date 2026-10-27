@@ -256,6 +256,10 @@ REST_FRAMEWORK: dict[str, Any] = {
         # Sign-in attempts, per client IP and per submitted email (ADR-0007).
         "login_ip": env_str("FINLUME_THROTTLE_LOGIN_IP", default="5/minute"),
         "login_email": env_str("FINLUME_THROTTLE_LOGIN_EMAIL", default="5/minute"),
+        # Adding organization members by email, per user (tenancy plan §5).
+        "organization_member_add": env_str(
+            "FINLUME_THROTTLE_ORGANIZATION_MEMBER_ADD", default="30/hour"
+        ),
     },
     "EXCEPTION_HANDLER": "api.exceptions.api_exception_handler",
     # Monetary values travel as strings so no client parses them as floats.

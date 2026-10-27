@@ -97,6 +97,26 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - A new database constraint requires a non-blank email (`accounts.0002`).
 - **Audit app:** `AuditEvent`, which is append-only and carries a pseudonymous `actor_label` and the request ID, plus `AuditEvent.record()`. Registration, sign-in and failed sign-in are recorded. A failed sign-in keeps only the normalised email, never the password.
 
+- **Workspace API (MVP PR 1c, ADR-0008):**
+  - New endpoints: `GET, POST workspaces/`, `GET, PATCH workspaces/{id}/`, `GET, POST workspaces/{id}/members/` and `PATCH, DELETE workspaces/{id}/members/{user_id}/`. Viewers read, owners rename the workspace and manage its members, and any member may leave. A non-member gets `404`, including an organization admin.
+  - `WorkspaceScopedView` authorizes each request with one indexed query and scopes querysets to the workspace. Every later tenant view inherits it.
+  - Creating a workspace requires organization membership and makes the creator its owner in the same transaction (I5).
+  - Only active members of the workspace's organization can be added (I2, I6). Personal workspaces take no other members.
+  - A workspace always keeps at least one owner (I3). Concurrent demotions are serialised by a row lock.
+  - `python manage.py recover_workspace_owner <workspace_id> <email> --reason "…"`: operator-only ownership recovery, allowed only when every owner's account is inactive, and always audited as `workspace.ownership_recovered`. There is no API for it.
+  - Events `workspace.created`, `workspace.renamed`, `membership.added`, `membership.role_changed` and `membership.removed` are audited.
+  - Query budgets for the workspace endpoints are enforced by the `assert_app_queries` test fixture.
+
+- **Organization API (MVP PR 1d, ADR-0008):**
+  - New endpoints: `GET, POST organizations/`, `GET, PATCH organizations/{id}/`, `GET, POST organizations/{id}/members/` and `PATCH, DELETE organizations/{id}/members/{user_id}/`. Members read and admins write. Any member may leave, and a non-member gets `404`.
+  - Any signed-in user can create an organization and becomes its admin.
+  - Admins add existing, active accounts by email. Because this reveals whether an address is registered, it is throttled per user (30/hour, `FINLUME_THROTTLE_ORGANIZATION_MEMBER_ADD`).
+  - An organization always keeps at least one admin (I4). Concurrent demotions are serialised by a row lock.
+  - Removing a member, or a member leaving, also removes their memberships in the organization's workspaces, in the same transaction (I2). This is refused while they are the last owner of one of those workspaces.
+  - Adding a workspace member and creating a workspace now lock the user's organization membership, so a concurrent removal from the organization cannot leave a workspace membership behind.
+  - Events `organization.created`, `organization.renamed`, `organization.member_added`, `organization.member_role_changed` and `organization.member_removed` are audited.
+  - `tests/test_tenant_isolation.py` holds the plan's §8 security tests, parametrized over every tenancy endpoint. PostgreSQL concurrency tests cover the last-admin rule and the workspace-membership sync.
+
 ### Changed
 
 - **Unauthenticated API requests now get `401`** with `WWW-Authenticate: Session`, instead of `403`. Signed-in users without permission, and CSRF failures, still get `403`.

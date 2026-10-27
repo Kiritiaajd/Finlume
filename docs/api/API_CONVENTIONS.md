@@ -124,6 +124,7 @@ Every response carries an `X-Request-ID` header. A caller-supplied `X-Request-ID
 | Authenticated user | `1000/hour` | `FINLUME_THROTTLE_USER` |
 | Sign-in, per client IP | `5/minute` | `FINLUME_THROTTLE_LOGIN_IP` |
 | Sign-in, per submitted email (hashed in the cache key) | `5/minute` | `FINLUME_THROTTLE_LOGIN_EMAIL` |
+| Adding organization members by email, per user | `30/hour` | `FINLUME_THROTTLE_ORGANIZATION_MEMBER_ADD` |
 
 Throttle state uses Django's default cache, which is per process. A multi-process deployment needs a shared cache before limits are exact (see [SCALABILITY_AND_DEPLOYMENT](../architecture/SCALABILITY_AND_DEPLOYMENT.md)). The health endpoint is not throttled.
 
@@ -144,6 +145,40 @@ An OpenAPI 3 schema generated with drf-spectacular is planned for Phase 1, and t
 | `GET me/` | Signed in | `200`, the current user | |
 
 Current user: `{"id": "<uuid>", "email": "…", "personal_workspace_id": "<uuid>"}`.
+
+### Organizations ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md))
+
+Organization membership never grants access to the organization's workspaces, not even for admins. A caller who is not a member gets `404`, so the organization's existence is not revealed.
+
+| Endpoint | Access | Success | Notes |
+|---|---|---|---|
+| `GET organizations/` | Signed in | `200`, a page of the caller's organizations | Each with `my_role` |
+| `POST organizations/` `{"name"}` | Signed in | `201`, the organization | The creator becomes its admin |
+| `GET organizations/{id}/` | Member | `200`, the organization | |
+| `PATCH organizations/{id}/` `{"name"}` | Admin | `200`, the organization | |
+| `GET organizations/{id}/members/` | Member | `200`, a page of members | |
+| `POST organizations/{id}/members/` `{"email", "role"}` | Admin, throttled | `201`, the member | Adds an existing, active account. Unknown or inactive email, or already a member → `409 conflict` |
+| `PATCH organizations/{id}/members/{user_id}/` `{"role"}` | Admin | `200`, the member | Demoting the last admin → `409` |
+| `DELETE organizations/{id}/members/{user_id}/` | Admin, or the member themselves (leave) | `204` | Also removes their memberships in the organization's workspaces. The last admin, or the last owner of one of its workspaces → `409` |
+
+Organization: `{"id", "name", "my_role": "admin" | "member", "created_at"}`. Member: `{"user_id", "email", "role", "joined_at"}`.
+
+### Workspaces ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md))
+
+Access comes only from workspace membership. A caller who is not a member gets `404`, including an admin of the workspace's organization. Every later tenant resource is nested under `workspaces/{id}/` and inherits the same check.
+
+| Endpoint | Access | Success | Notes |
+|---|---|---|---|
+| `GET workspaces/` | Signed in | `200`, a page of the caller's workspaces | Personal and organization workspaces, each with `my_role` |
+| `POST workspaces/` `{"organization_id", "name"}` | Member of that organization | `201`, the workspace | Always an organization workspace; the creator becomes its owner. Not a member of the organization → `404` |
+| `GET workspaces/{id}/` | Viewer | `200`, the workspace | |
+| `PATCH workspaces/{id}/` `{"name"}` | Owner | `200`, the workspace | |
+| `GET workspaces/{id}/members/` | Viewer | `200`, a page of members | |
+| `POST workspaces/{id}/members/` `{"user_id", "role"}` | Owner | `201`, the member | The user must be an active member of the workspace's organization. Otherwise, already a member, or a personal workspace → `409 conflict` |
+| `PATCH workspaces/{id}/members/{user_id}/` `{"role"}` | Owner | `200`, the member | Demoting the last owner → `409`. Transferring ownership is setting another member's role to `owner` |
+| `DELETE workspaces/{id}/members/{user_id}/` | Owner, or the member themselves (leave) | `204` | The last owner → `409` |
+
+Workspace: `{"id", "name", "kind": "personal" | "organization", "organization_id", "my_role": "owner" | "editor" | "viewer", "created_at"}`; `organization_id` is `null` for a personal workspace. Member: `{"user_id", "email", "role", "joined_at"}`.
 
 ### `GET /api/v1/health/`
 

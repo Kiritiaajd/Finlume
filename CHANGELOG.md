@@ -58,6 +58,16 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
 - `.github/dependabot.yml`: weekly update pull requests for the backend (pip), the web client (npm) and GitHub Actions, and security updates only for the mobile client. Django and its type stubs stay on their current LTS lines.
 - ADR-0007, *Authentication, sessions and login protection for the MVP*: `401` with a `Session` challenge for unauthenticated requests, email sign-in, sessions that expire after 8 hours of inactivity, and built-in login throttles (5/minute per IP and per email). It is to be implemented in MVP step 1.
 - The approved retention defaults (D-07) and the `workspaces` app name (FA-26) are recorded in the architecture decisions.
+- ADR-0008, *Organizations and workspace tenancy* (proposed), and `docs/development/TENANCY_IMPLEMENTATION_PLAN.md`, which together specify MVP step 1:
+  - organizations as the customer boundary;
+  - a private personal workspace per user;
+  - access only through workspace membership, also for organization admins;
+  - one access check per request;
+  - last-owner and last-admin rules;
+  - operator-only ownership recovery;
+  - teams deferred.
+
+  The data model, domain boundaries, product scope (FR-003 to FR-005, acceptance criterion 2), API conventions (every tenant resource nested under its workspace; `409 conflict`), data lifecycle and MVP plan are updated to match.
 
 ### Changed
 

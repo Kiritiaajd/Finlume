@@ -19,8 +19,9 @@ The Finlume web and mobile clients consume the same versioned REST API, served b
 
 - Resource names are plural, kebab-case nouns, for example `/api/v1/workspaces/`.
 - Identifiers in URLs and payloads are the resource's `public_id` (UUID). Sequential database keys are never exposed.
-- Nest resources at most one level, under the workspace that owns them: `/api/v1/workspaces/{public_id}/statements/`. Deeper resources are addressed directly, for example `/api/v1/statements/{public_id}/line-items/`.
-- Actions that do not map to CRUD use a verb sub-resource with `POST`, for example `POST /api/v1/entities/{public_id}/analyses/` (body: the reporting period) to run an analysis. An analysis spans all statement types for one entity and period, so it hangs off the entity, not a single statement ([FOUNDATION_AUDIT FA-02](../architecture/FOUNDATION_AUDIT.md#fa-02--no-rule-for-assembling-one-fact-set-from-separate-statements-needs-approval)).
+- **Every tenant resource is addressed under the workspace that owns it**, for example `/api/v1/workspaces/{public_id}/statements/`. The workspace is resolved and authorised once per request, and every queryset is filtered by it, so one resolver protects every endpoint ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) §6). Children nest at most one more level: `/api/v1/workspaces/{public_id}/statements/{public_id}/line-items/`.
+- Non-tenant resources (`auth/`, `me/`, `organizations/`) are top-level.
+- Actions that do not map to CRUD use a verb sub-resource with `POST`, for example `POST /api/v1/workspaces/{public_id}/entities/{public_id}/analyses/` (body: the reporting period) to run an analysis. An analysis spans all statement types for one entity and period, so it hangs off the entity, not a single statement ([FOUNDATION_AUDIT FA-02](../architecture/FOUNDATION_AUDIT.md#fa-02--no-rule-for-assembling-one-fact-set-from-separate-statements-needs-approval)).
 - Trailing slashes are required, which is Django's default.
 
 ## Payloads
@@ -65,9 +66,10 @@ Every error response uses one envelope, produced by `apps.core.exceptions.api_ex
 | 400 | `parse_error` | Malformed JSON. |
 | 401 | `not_authenticated`, `authentication_failed` | Missing or invalid credentials. The response carries `WWW-Authenticate: Session` ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)). **Until MVP step 1 implements this, DRF answers `403`.** |
 | 403 | `permission_denied` | Authenticated, but not allowed (e.g. a viewer attempting a write). A CSRF failure is also `403`. |
-| 404 | `not_found` | Unknown resource, or one the caller may not see. Existence is not revealed to callers without access. |
+| 404 | `not_found` | Unknown resource, or one the caller may not see. Existence is not revealed to callers without access. A non-member always gets `404` for a workspace and everything in it. |
 | 405 | `method_not_allowed` | Wrong HTTP method. |
 | 406 | `not_acceptable` | Unsupported `Accept` header. |
+| 409 | `conflict` | The request would break an invariant, for example removing a workspace's last owner or an organization's last admin (designed; arrives with MVP step 1). |
 | 415 | `unsupported_media_type` | Unsupported `Content-Type`. |
 | 429 | `throttled` | Rate limit exceeded; the `Retry-After` header is set. |
 | 500 | `server_error` | Unexpected failure. The error is logged with the request ID. |
@@ -112,7 +114,7 @@ Every response carries an `X-Request-ID` header. A caller-supplied `X-Request-ID
 - Default permission: `IsAuthenticated`. Every endpoint requires a logged-in user unless it explicitly opts out; today only the health endpoint does.
 - **Web client:** Django session cookie plus CSRF. Unsafe methods send the token in the `X-CSRFToken` header. The SPA is served from the same origin as the API, through a reverse proxy in production and the Vite dev proxy locally, so CORS is not needed ([ADR-0006](../decisions/ADR-0006-client-stack.md)).
 - **Mobile client:** token-based authentication, to be decided by an ADR when the mobile phase begins.
-- Object access is always checked against workspace membership in the view or queryset. Authentication alone never grants access to data.
+- Object access is always checked against workspace membership, through the shared resolver and workspace-scoped querysets. Authentication alone never grants access to data, and neither does organization membership or the organization admin role ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)).
 
 ## Rate limiting
 

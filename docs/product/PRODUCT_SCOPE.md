@@ -68,7 +68,7 @@ The domains are separated where their data models, permissions or rules differ (
 
 | Domain | Capabilities | Status |
 |--------|--------------|--------|
-| **Platform** | Accounts, workspaces, memberships and roles, audit trail, health endpoint, versioned API | Health endpoint and custom user model: Implemented. Workspaces, roles and audit: MVP |
+| **Platform** | Accounts, organizations, workspaces, memberships and roles, audit trail, health endpoint, versioned API | Health endpoint and custom user model: Implemented. Organizations, workspaces, roles and audit: MVP ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)). Teams: Future |
 | **Financial statements** (business finance and company research) | Manual entry, CSV import, line-item mapping, normalisation, validation, restatements | MVP |
 | **Analysis engine** | Deterministic ratios, validation checks, engine versioning, saved analysis runs | Engine core: Implemented. Persistence and API: MVP |
 | **Reporting** | Dashboards, charts, period comparison, reports | Single-period dashboard/report: MVP. Multi-period comparison: Future |
@@ -90,7 +90,7 @@ The MVP proves one complete, demonstrable workflow:
 In scope:
 
 - Users register and sign in to the web app (session authentication).
-- A personal workspace is created for each user. Users can create business workspaces and invite members as owner, editor or viewer.
+- A private personal workspace is created for each user. Users can create organizations, add members to them, create organization workspaces, and add organization members to those workspaces as owner, editor or viewer.
 - Reporting entities (a business or a company being researched) inside a workspace.
 - Manual entry and CSV upload of income statement, balance sheet and cash-flow figures for one period. Each statement uses one currency and one reporting scale.
 - Mapping of input rows to the canonical line-item taxonomy, with a review step.
@@ -136,9 +136,9 @@ The MVP will **not**:
 |----|-------------|-------|
 | FR-001 | Users can register, sign in and sign out with a username/email and password. | MVP |
 | FR-002 | Email addresses are unique without regard to case. | Implemented (model constraint) |
-| FR-003 | Each user has a personal workspace, created automatically. | MVP |
-| FR-004 | Users can create business workspaces and invite existing users as owner, editor or viewer. | MVP |
-| FR-005 | Users can see and change only the data of workspaces they belong to. Viewers can read but not change. | MVP |
+| FR-003 | Each user has exactly one personal workspace, created automatically. It cannot be shared. | MVP |
+| FR-004 | Any signed-in user can create an organization and becomes its admin. Admins add existing users as members. Any organization member can create an organization workspace, becoming its owner, and owners add organization members as owner, editor or viewer. *(Revised 2026-10-27 by ADR-0008; previously "business workspaces".)* | MVP |
+| FR-005 | Users can see and change only the data of workspaces they are members of. Viewers can read but not change. Organization membership, including the admin role, grants no access to workspace data. | MVP |
 | FR-006 | The API identifies users and records by opaque UUIDs, never by sequential database IDs. | Implemented (users); MVP (all records) |
 
 ### Financial statement input
@@ -254,7 +254,7 @@ The MVP is accepted when all of the following can be shown on a fresh self-hoste
 using fictional data:
 
 1. A new user registers, signs in and finds their personal workspace (FR-001, FR-003).
-2. The user creates a business workspace, invites a second user as viewer, and the viewer can read but not edit (FR-004, FR-005).
+2. The user creates an organization, adds a second user as a member, creates an organization workspace and adds the second user to it as viewer. The viewer can read but not edit. A third organization member who is not in the workspace gets `404`, and so would an organization admin (FR-004, FR-005).
 3. The user creates a reporting entity and enters a balance sheet, income statement and cash-flow statement for FY2025 in INR crores, by hand (FR-010–FR-012).
 4. The user uploads a CSV for another period, reviews the row mapping, confirms it, and sees the normalised figures in base units (FR-013, FR-014).
 5. A deliberately unbalanced balance sheet produces a `balance_sheet_imbalance` warning. A negative revenue produces `unexpected_sign`. Neither blocks the analysis (FR-020–FR-023).

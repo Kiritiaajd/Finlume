@@ -16,7 +16,7 @@ Presentation / API  ──►  Application  ──►  Domain
 | Layer | Location | May depend on | Must not depend on |
 |-------|----------|---------------|--------------------|
 | Presentation / API | `backend/apps/<module>/` (views, serializers, `urls.py`, `admin.py`) | Application, and Domain value types used for input/output | Another module's models or views |
-| Application | `backend/application/` (Phase 1) | Domain, ports it defines, Django transactions and ORM through repositories | Presentation (no `Request`, no serializers) |
+| Application | `backend/application/` (Phase 1) | Domain, ports it defines, Django transactions and the ORM (querysets used directly; no repository layer while there is one database) | Presentation (no `Request`, no serializers, no `rest_framework` imports) |
 | Domain | `backend/domain/` | Python standard library and other domain packages | Django, DRF, `apps`, `config`, `infrastructure`, I/O libraries |
 | Infrastructure | `backend/infrastructure/` and Django models in `backend/apps/<module>/models.py` | Django, third-party libraries, Domain types | Presentation |
 
@@ -48,7 +48,8 @@ flowchart LR
     subgraph shared["Shared foundation"]
         core["core: health, errors, request IDs"]
         accounts["accounts: users"]
-        orgs["organizations: workspaces, memberships (planned)"]
+        orgs["organizations: organizations, members (planned)"]
+        workspaces["workspaces: workspaces, members, access scoping (planned)"]
         audit["audit: audit events (planned)"]
         documents["documents: private source files (planned)"]
     end
@@ -73,7 +74,10 @@ flowchart LR
     end
 
     orgs --> accounts
-    records --> orgs
+    workspaces --> orgs
+    workspaces --> accounts
+    records --> workspaces
+    documents --> workspaces
     ingestion --> records
     ingestion --> documents
     ingestion --> validation
@@ -85,13 +89,13 @@ flowchart LR
     validation --> fs
     calculations --> validation
     calculations --> fs
-    personal -.-> orgs
-    investments -.-> orgs
+    personal -.-> workspaces
+    investments -.-> workspaces
     investments -.-> calculations
     ai -.-> analysis
 
     classDef planned stroke-dasharray: 5 5
-    class orgs,audit,documents,records,ingestion,analysis,reports,personal,investments,ai planned
+    class orgs,workspaces,audit,documents,records,ingestion,analysis,reports,personal,investments,ai planned
 ```
 
 Arrows point from a module to what it depends on. Dashed modules do not exist yet.
@@ -105,7 +109,8 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 |-----|--------|------|----------------|
 | `core` | **Implemented** | Health endpoint, JSON error envelope, request IDs, pagination. No models. | — |
 | `accounts` | **Implemented** | Custom `User` model (`public_id`, case-insensitive unique email). It had to exist before the first migration. | — |
-| `organizations` | Planned (Phase 1) | `Workspace` (personal or business; the tenancy boundary) and `Membership` (owner, editor, viewer) | First Phase 1 feature that stores user data |
+| `organizations` | Planned (Phase 1) | `Organization` (the customer boundary) and `OrganizationMembership` (admin, member). Grants no workspace access ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | MVP step 1a |
+| `workspaces` | Planned (Phase 1) | `Workspace` (personal or organization; the tenancy boundary), `WorkspaceMembership` (owner, editor, viewer) and `scoping.py`, the one helper every tenant view inherits | MVP step 1a |
 | `financial_records` | Planned (Phase 1) | `ReportingEntity`, `FinancialStatement` (versioned), `StatementLineItem`, `FinancialFact` | Manual statement entry |
 | `ingestion` | Planned (Phase 1) | Manual-entry and CSV import use cases, column mapping, import errors | CSV upload |
 | `documents` | Planned (Phase 1, minimal) | `SourceDocument` metadata (kind, SHA-256, private storage key) | First stored upload (the CSV file kept for provenance) |
@@ -169,8 +174,9 @@ permissions and make every query defensive. Each therefore gets its own module a
 
 **What is shared**, because the concepts genuinely align:
 
-- Identity and tenancy: `accounts.User`, `organizations.Workspace`, `Membership`. A workspace
-  is either personal or business, and its kind determines which modules it can use.
+- Identity and tenancy: `accounts.User`, `organizations.Organization`,
+  `workspaces.Workspace` and `WorkspaceMembership`. A workspace is either personal or owned by
+  an organization. Every tenant module scopes its data through `workspaces.scoping`.
 - Source documents and private storage (`documents`, `infrastructure/storage`).
 - Audit events (`audit`).
 - Domain value types: `Currency`, `Scale`, `ReportingPeriod`, the `Decimal` precision

@@ -70,6 +70,24 @@ def test_every_line_item_belongs_to_a_statement():
         assert isinstance(item.statement_type, StatementType)
 
 
+def test_every_line_item_has_a_definition():
+    for item in LineItem:
+        assert item.definition.strip(), item
+
+
+@pytest.mark.parametrize(
+    ("item", "phrase"),
+    [
+        (LineItem.TOTAL_DEBT, "Excludes lease liabilities"),
+        (LineItem.TOTAL_EQUITY, "including non-controlling interests"),
+        (LineItem.NET_INCOME, "including the share attributable to non-controlling interests"),
+        (LineItem.OPERATING_INCOME, "Operating profit as reported"),
+    ],
+)
+def test_the_a4_definitions_are_the_approved_ones(item, phrase):
+    assert phrase in item.definition
+
+
 def test_fact_set_is_immutable_and_treats_absent_items_as_missing(make_facts):
     facts = make_facts(revenue="100")
 

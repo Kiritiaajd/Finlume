@@ -2,9 +2,10 @@
 
 The Finlume web and mobile clients consume the same versioned REST API, served by Django REST Framework.
 
-> **Implementation status:** the implemented endpoints are health and
-> authentication ([below](#implemented-endpoints)). Every other resource in
-> this document is designed but not yet built. The global behaviours (versioning, error envelope,
+> **Implementation status:** the implemented endpoints are health,
+> authentication, organizations, workspaces, entities, draft statements and
+> the line-item taxonomy ([below](#implemented-endpoints)). Every other
+> resource in this document is designed but not yet built. The global behaviours (versioning, error envelope,
 > request IDs, pagination, throttling, authentication defaults) are already
 > configured in `backend/config/settings/base.py`.
 
@@ -179,6 +180,34 @@ Access comes only from workspace membership. A caller who is not a member gets `
 | `DELETE workspaces/{id}/members/{user_id}/` | Owner, or the member themselves (leave) | `204` | The last owner → `409` |
 
 Workspace: `{"id", "name", "kind": "personal" | "organization", "organization_id", "my_role": "owner" | "editor" | "viewer", "created_at"}`; `organization_id` is `null` for a personal workspace. Member: `{"user_id", "email", "role", "joined_at"}`.
+
+### Entities and statements (MVP step 3a)
+
+Under `workspaces/{ws}/`. Viewers read; editors and owners write. An entity or statement ID from another workspace is not found (`404`).
+
+| Endpoint | Access | Success | Notes |
+|---|---|---|---|
+| `GET entities/` | Viewer | `200`, a page of entities | Ordered by name |
+| `POST entities/` `{"name", "entity_type", "default_currency"?, "fiscal_year_end_month"?}` | Editor | `201`, the entity | `entity_type`: `business`, `individual` or `listed_company`. A name already used in the workspace → `409` |
+| `GET entities/{id}/` | Viewer | `200`, the entity | |
+| `GET entities/{id}/statements/` | Viewer | `200`, a page of statements | Every version, latest period first |
+| `POST entities/{id}/statements/` | Editor | `201`, the draft with its rows | Creates version 1 as a `draft`, with a manual-entry source. A statement of that type already existing for the period → `409` (edit its draft, or restate it) |
+| `GET statements/{id}/` | Viewer | `200`, the statement with its rows | |
+| `PATCH statements/{id}/` | Editor | `200`, the statement with its rows | Drafts only, otherwise `409`. Sending `line_items` replaces every row. Changing `statement_type` or `reported_scale` requires sending `line_items` again. A restatement draft keeps its statement type and period (`409`) |
+
+Statement body: `{"statement_type", "period_start", "period_end", "period_type", "currency", "reported_scale", "line_items": [{"label", "line_item_code"?, "amount"?, "source_reference"?}]}`. Rows are numbered in the order sent.
+
+Input rules, each answered with a field-level `400 validation_error` (`details.line_items.<index>.<field>` for a row):
+
+- `amount` is a decimal **string** (`"1250.50"`, `"-3.25"`, `"1e3"`) or `null` for a blank cell. JSON numbers are refused, so a figure never passes through a binary float. At most 6 decimal places and 64 characters. Its magnitude must be below 10²⁴ both as entered and once scaled to units (FOUNDATION_AUDIT FA-15).
+- `line_item_code` is a taxonomy code, or blank for an unmapped row. It must belong to the statement's type, and appear at most once per statement.
+- `currency` is three uppercase letters; `period_end` is not before `period_start`; at most 500 rows.
+
+Statement: `{"id", "entity_id", "statement_type", "period_start", "period_end", "period_type", "currency", "reported_scale", "status", "version", "supersedes_id", "restatement_reason", "created_at", "updated_at"}`, plus `line_items` on a single statement. Row: `{"id", "row_number", "label", "line_item_code", "amount", "raw_value", "source_reference"}`. `amount` is the figure as entered, in the reported scale, with 6 decimal places; `raw_value` is the exact text sent. Validating a draft and restating arrive in step 3b.
+
+### `GET line-items/` (MVP step 3a)
+
+Signed in. The canonical line items, as one complete page: `{"code", "statement_type", "label", "definition", "sign": "non_negative" | "non_positive" | "signed"}`. `definition` is the help text for entry forms ([calculation conventions §4](../data/FINANCIAL_CALCULATION_CONVENTIONS.md#4-line-item-taxonomy-implemented)).
 
 ### `GET /api/v1/health/`
 

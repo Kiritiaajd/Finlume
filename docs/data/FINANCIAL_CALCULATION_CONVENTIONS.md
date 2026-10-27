@@ -103,6 +103,24 @@ never renamed or reused.
 | | `net_cash_from_investing_activities` | signed |
 | | `net_cash_from_financing_activities` | signed |
 
+### Definitions (decision A4)
+
+Every code has a definition, `LineItem.definition` in `line_items.py`, which entry forms
+show as help text (`GET /api/v1/line-items/`). Four of them decide what a ratio measures and
+were approved as decision A4 ([FOUNDATION_AUDIT FA-10](../architecture/FOUNDATION_AUDIT.md#fa-10--ambiguous-line-item-definitions-behind-four-ratios-approved)):
+
+| Code | Definition | Used by |
+|---|---|---|
+| `total_debt` | Interest-bearing borrowings at period end, current and non-current, including bank overdrafts and the current portion of long-term borrowings. **Excludes lease liabilities.** | `debt_to_equity` |
+| `total_equity` | Total equity at period end, **including non-controlling interests**, so that total assets equal total liabilities plus total equity. | `debt_to_equity`, `return_on_equity`, the balance sheet identity |
+| `net_income` | Profit for the period after tax, **including the share attributable to non-controlling interests**, which pairs it with that equity. | `net_margin`, `return_on_equity`, `return_on_assets` |
+| `operating_income` | Operating profit **as reported**: profit from operations before finance costs and tax. Not recomputed as EBIT. | `operating_margin` |
+
+Changing a definition changes what a ratio measures, so it needs the same review as a formula.
+Variants, such as debt including leases, become new codes rather than new meanings.
+
+### Sign convention
+
 The "≥ 0" codes form `NON_NEGATIVE_ITEMS` and `capital_expenditure` forms
 `NON_POSITIVE_ITEMS` in `line_items.py`. Input that breaks the convention is **flagged, not
 flipped**. Converting a source's sign convention (for example, expenses shown in parentheses)

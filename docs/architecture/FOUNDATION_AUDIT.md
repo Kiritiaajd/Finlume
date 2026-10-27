@@ -50,7 +50,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 | FA-08 | Medium | Security | No brute-force protection on admin or (future) API login | **Decided** ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
 | FA-09 | Medium | Security / ops | Throttle counters are per process | Open: plan step 8 |
 | FA-10 | Medium | Engine | Line-item definitions behind four ratios are ambiguous | **Approved** and implemented in step 3a ([§11](#11-follow-up-2026-10-27)) |
-| FA-11 | Medium | Engine | Input fingerprint is designed but not implemented | Open: plan step 5 |
+| FA-11 | Medium | Engine | Input fingerprint is designed but not implemented | **Fixed** (step 5a) |
 | FA-12 | Medium | CI | Workflow never executed; Python 3.13 path unverified | **Mostly resolved**: CI green, Dependabot added; SHA pinning and repository settings open ([§11](#11-follow-up-2026-10-27)) |
 | FA-13 | Medium | Dev environment | Local PostgreSQL port collision; risk of testing against an unrelated server | **Fixed** (docs and `.env.example`) |
 | FA-14 | Medium | Observability | 4xx log lines lost their request ID | **Fixed** |
@@ -152,11 +152,12 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 - **Recommendation:** approve a short definitions table in FINANCIAL_CALCULATION_CONVENTIONS §4, shown as help text in the entry UI. Suggested defaults: `total_debt` = interest-bearing borrowings, current plus non-current, excluding lease liabilities; `total_equity` = total equity **including** non-controlling interests (so the balance sheet identity holds); `net_income` = profit for the period **including** non-controlling interests (consistent with that equity); `operating_income` = operating profit as reported. Exclusions can become new codes later.
 - **Acceptance:** definitions documented before step 3's entry form ships.
 
-### FA-11 — Input fingerprint designed but not implemented (Open: plan step 5)
+### FA-11 — Input fingerprint designed but not implemented (Fixed in step 5a)
 
 - **Evidence:** [the calculation conventions, §10](../data/FINANCIAL_CALCULATION_CONVENTIONS.md#10-reproducibility-and-versioning) specify the canonical JSON format. `AnalysisOutcome` (`domain/calculations/analysis.py`) carries the engine version, period, currency, issues and per-metric inputs, but no fingerprint.
 - **Recommendation:** implement `fingerprint(facts: FinancialFactSet) -> str` in the domain, as a pure function. Format every value as a fixed-point string with exactly 6 decimal places, and reject values with more than 6 decimal places rather than rounding them (otherwise `1.0` and `1.000000` stay equal, but precision could be lost silently).
 - **Acceptance:** golden-value test, order independence, and equal fingerprints for `Decimal("1.0")` and `Decimal("1.000000")`.
+- **Fixed (step 5a):** `domain.calculations.fingerprint`, with all three acceptance tests plus refusal of more than 6 decimal places, `-0` equal to `0`, and independence from the decimal context. Every `AnalysisRun` stores it.
 
 ### FA-12 — CI never executed; Python 3.13 path unverified (Open)
 

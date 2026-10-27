@@ -1,5 +1,6 @@
 """Statement analysis use cases: from stored statements to the domain engine's input."""
 
+from .analyses import run_analysis
 from .assembly import AnalysisInput, assemble_analysis_input
 from .imports import ImportOutcome, import_statement_csv
 from .normalisation import build_facts
@@ -24,6 +25,7 @@ __all__ = [
     "create_statement",
     "import_statement_csv",
     "restate_statement",
+    "run_analysis",
     "update_draft",
     "validate_statement",
 ]

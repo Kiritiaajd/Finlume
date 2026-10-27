@@ -34,6 +34,12 @@ updates:
     groups:
       web-minor-and-patch:
         update-types: [minor, patch]
+    ignore:
+      # typescript-eslint 8 declares a peer dependency on typescript <6.1.0, so a
+      # newer TypeScript makes `npm ci` fail with ERESOLVE. Lift this when a
+      # typescript-eslint release supports the newer TypeScript.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
 
   # Expo pins compatible React Native package versions per SDK; version bumps go
   # through `npx expo install`. A limit of 0 keeps security updates only.

@@ -45,7 +45,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 | FA-03 | High | PostgreSQL | No test has ever run on PostgreSQL | **Resolved** in CI ([§11](#11-follow-up-2026-10-27)) |
 | FA-04 | High | Python | Python 3.10 reaches end of life this month | **Fixed** ([§11](#11-follow-up-2026-10-27)) |
 | FA-05 | Medium | Data model | Planned `PROTECT` keys would block workspace and user deletion | **Fixed** (design docs) |
-| FA-06 | Medium | Security | Docs claimed an upload size limit that Django does not enforce for files | **Fixed** (docs and comment); enforcement planned |
+| FA-06 | Medium | Security | Docs claimed an upload size limit that Django does not enforce for files | **Fixed** (docs, then enforcement in step 4); the reverse-proxy limit is step 8 |
 | FA-07 | Medium | API | 401 vs 403 for unauthenticated requests is inconsistent across docs | **Decided**: 401 ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
 | FA-08 | Medium | Security | No brute-force protection on admin or (future) API login | **Decided** ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); implement in step 1 |
 | FA-09 | Medium | Security / ops | Throttle counters are per process | Open: plan step 8 |
@@ -118,6 +118,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
   - It rejects files above `FINLUME_MAX_UPLOAD_BYTES` (a new setting) with `413` or `400` **before** storing them, and caps the row count.
   - The deployment guide sets a reverse-proxy body limit.
   - `FILE_UPLOAD_TEMP_DIR` points to a private directory.
+- **Implemented in step 4:** the CSV import endpoint alone accepts multipart. It refuses a file above `FINLUME_MAX_UPLOAD_BYTES` (1 MiB) with `413`: from `Content-Length` before the body is read, and from the parsed file's size. It caps rows at `FINLUME_MAX_IMPORT_ROWS` (500). Tests show nothing is stored when it refuses. Instead of a private `FILE_UPLOAD_TEMP_DIR`, the endpoint keeps the upload in memory with its own upload handler. Uploads therefore never reach a temporary file, which is stronger than a private temp directory. The reverse-proxy body limit belongs to the step 8 deployment guide.
 
 ### FA-07 — 401 vs 403 for unauthenticated requests (Needs approval)
 
@@ -190,7 +191,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 | FA-18 | A metric computed from sign-violating input (for example negative revenue) has no metric-level issue; only `validation_issues` carries `unexpected_sign` | Dashboard shows validation issues next to affected metrics (step 7) | Planned |
 | FA-19 | Session lifetime is Django's default of 2 weeks, with no idle timeout | Decide a policy, for example 8 hours with `SESSION_SAVE_EVERY_REQUEST` | Needs approval |
 | FA-20 | `User.email` has no database-level non-blank check, and login uses `username` | Decide whether to sign in by email. If yes, add a `CHECK (email <> '')` and an email-based backend in step 1 | Needs approval |
-| FA-21 | `PrivateFileSystemStorage.url()` raises by design, so Django admin's default `FileField` widget would crash on documents | Custom read-only admin widget when `SourceDocument` lands (step 4) | Planned |
+| FA-21 | `PrivateFileSystemStorage.url()` raises by design, so Django admin's default `FileField` widget would crash on documents | `SourceDocument` has no `FileField`: a stored file is only a random `storage_key`, so the read-only admin never asks for a URL (step 4, tested) | **Fixed** |
 | FA-22 | Test settings pointed management commands at the development SQLite file | `config/settings/test.py` now uses `var/test.sqlite3`; pytest still uses an in-memory database | **Fixed** |
 | FA-23 | No coverage threshold (`--cov-fail-under`) in CI or the scripts | Add `fail_under = 85` to `[tool.coverage.report]` once CI is green | Planned |
 | FA-24 | Unhandled database errors are logged with their messages, which can contain user data (for example an `IntegrityError` showing an email) | Log scrubbing policy, and map known integrity errors to `409` in the application layer (step 8) | Planned |

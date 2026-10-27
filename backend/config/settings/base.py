@@ -210,10 +210,17 @@ STORAGES: dict[str, dict[str, Any]] = {
 # Caps request bodies and non-file form fields. It does NOT cap uploaded files:
 # Django exempts file parts from this limit, and FILE_UPLOAD_MAX_MEMORY_SIZE is
 # only the threshold above which an upload spools to a temporary file. Upload
-# endpoints must enforce their own per-file maximum (and the reverse proxy a
-# body limit) when file ingestion arrives; see docs/architecture/FOUNDATION_AUDIT.md.
+# endpoints enforce their own per-file maximum (and the reverse proxy a body
+# limit); see docs/architecture/FOUNDATION_AUDIT.md, FA-06.
 DATA_UPLOAD_MAX_MEMORY_SIZE = env_int("FINLUME_MAX_REQUEST_BYTES", default=5 * 1024 * 1024)
 FILE_UPLOAD_MAX_MEMORY_SIZE = DATA_UPLOAD_MAX_MEMORY_SIZE
+
+# Statement CSV uploads (MVP step 4). The endpoint refuses a larger request
+# before reading it, and keeps the upload in memory, so it never reaches a
+# temporary file or storage. 500 rows matches the manual-entry limit, so an
+# imported draft can always be edited.
+MAX_UPLOAD_BYTES = env_int("FINLUME_MAX_UPLOAD_BYTES", default=1024 * 1024)
+MAX_IMPORT_ROWS = env_int("FINLUME_MAX_IMPORT_ROWS", default=500)
 
 # ---------------------------------------------------------------------------
 # Security headers shared by all environments

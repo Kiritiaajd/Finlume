@@ -5,8 +5,8 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404
 from rest_framework import exceptions
 
-from api.exceptions import api_exception_handler
-from services.errors import ConflictError
+from api.exceptions import PayloadTooLarge, api_exception_handler
+from services.errors import ConflictError, InvalidInput
 
 
 def _handle(exc):
@@ -49,6 +49,22 @@ def test_conflict_errors_from_use_cases_return_409_with_their_message():
     assert response.status_code == 409
     assert response.data["error"]["code"] == "conflict"
     assert response.data["error"]["message"] == "A workspace must keep at least one owner."
+
+
+def test_invalid_input_from_use_cases_returns_400_with_its_details():
+    response = _handle(InvalidInput({"rows": {"3": {"amount": ["Not a number."]}}}))
+
+    assert response.status_code == 400
+    assert response.data["error"]["code"] == "validation_error"
+    assert response.data["error"]["details"] == {"rows": {"3": {"amount": ["Not a number."]}}}
+
+
+def test_payload_too_large_uses_the_envelope():
+    response = _handle(PayloadTooLarge("Files are limited to 100 bytes."))
+
+    assert response.status_code == 413
+    assert response.data["error"]["code"] == "payload_too_large"
+    assert response.data["error"]["message"] == "Files are limited to 100 bytes."
 
 
 def test_parse_errors_hide_parser_internals():

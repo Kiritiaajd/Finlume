@@ -97,6 +97,14 @@ Delivered as two PRs:
 
 **Goal:** upload a CSV, review the mapping and per-row errors, confirm (FR-013, FR-014, FR-016).
 
+*Implemented 2026-10-27*, with these decisions:
+
+- The upload creates the **draft** directly. Its rows carry the proposed codes; the user corrects them with `PATCH`, and "confirm" is step 3's `validate`. No import-batch tables, so no `ingestion` app.
+- Limits: 1 MiB (`FINLUME_MAX_UPLOAD_BYTES`) and 500 rows (`FINLUME_MAX_IMPORT_ROWS`).
+- Amounts: plain decimals, parentheses for negatives, and comma grouping, including Indian.
+- `Idempotency-Key` is a column on `SourceDocument`.
+- The upload is held in memory by the endpoint's own upload handler, so it never reaches a temporary file, and `FILE_UPLOAD_TEMP_DIR` is not needed (see FA-06).
+
 - **Upload endpoint:**
   - `MultiPartParser` on this view only.
   - A new `FINLUME_MAX_UPLOAD_BYTES`, checked **before** storing (FA-06).

@@ -3,8 +3,8 @@
 The Finlume web and mobile clients consume the same versioned REST API, served by Django REST Framework.
 
 > **Implementation status:** the implemented endpoints are health,
-> authentication, organizations, workspaces, entities, draft statements and
-> the line-item taxonomy ([below](#implemented-endpoints)). Every other
+> authentication, organizations, workspaces, entities, statements, CSV
+> imports and the line-item taxonomy ([below](#implemented-endpoints)). Every other
 > resource in this document is designed but not yet built. The global behaviours (versioning, error envelope,
 > request IDs, pagination, throttling, authentication defaults) are already
 > configured in `backend/config/settings/base.py`.
@@ -71,6 +71,7 @@ Every error response uses one envelope, produced by `api.exceptions.api_exceptio
 | 405 | `method_not_allowed` | Wrong HTTP method. |
 | 406 | `not_acceptable` | Unsupported `Accept` header. |
 | 409 | `conflict` | The request would break an invariant, for example removing a workspace's last owner or an organization's last admin. Use cases raise `services.errors.ConflictError`, and the handler maps it with its safe message. |
+| 413 | `payload_too_large` | An upload above its endpoint's limit. It is refused before anything is stored. |
 | 415 | `unsupported_media_type` | Unsupported `Content-Type`. |
 | 429 | `throttled` | Rate limit exceeded; the `Retry-After` header is set. |
 | 500 | `server_error` | Unexpected failure. The error is logged with the request ID. |
@@ -101,9 +102,9 @@ Cursor pagination may be introduced for large, append-only collections such as t
 - Ordering uses `?ordering=period_end` or `?ordering=-created_at`, and only whitelisted fields can be used.
 - Unknown filter parameters are rejected with `validation_error` rather than ignored.
 
-## Idempotency (designed)
+## Idempotency
 
-Endpoints that create imports or analysis runs will accept an `Idempotency-Key` header, a client-generated UUID. Replaying the same key with the same body returns the original result instead of creating a duplicate; replaying it with a different body returns `409`.
+Endpoints that create imports or analysis runs accept an `Idempotency-Key` header, a client-generated UUID. Replaying the same key with the same body returns the original result instead of creating a duplicate; replaying it with a different body returns `409`. A key that is not a UUID is a `400`. Keys are scoped to the user and workspace. **Implemented** for CSV imports, where "the same body" means the same file for the same entity; analysis runs follow in step 5.
 
 ## Request IDs
 
@@ -208,6 +209,32 @@ Input rules, each answered with a field-level `400 validation_error` (`details.l
 Statement: `{"id", "entity_id", "statement_type", "period_start", "period_end", "period_type", "currency", "reported_scale", "status", "version", "supersedes_id", "restatement_reason", "created_at", "updated_at"}`, plus `line_items` on a single statement. Row: `{"id", "row_number", "label", "line_item_code", "amount", "raw_value", "source_reference"}`. `amount` is the figure as entered, in the reported scale, with 6 decimal places; `raw_value` is the exact text sent. Fact: `{"line_item", "value", "row_id", "review_status"}`, where `value` is in base units and `row_id` is the row it came from. Issue: `{"code", "severity", "message", "line_items"}`.
 
 Statuses change only by validating a draft, so they always match the restatement chain: one `validated` version per statement and period, earlier versions `superseded`, and at most one restatement `draft` in progress.
+
+### CSV imports (MVP step 4)
+
+`POST workspaces/{ws}/entities/{id}/imports/`. Editor. `multipart/form-data` only (`415` otherwise), with the statement fields (`statement_type`, `period_start`, `period_end`, `period_type`, `currency`, `reported_scale`) and the CSV as `file`. Optional `Idempotency-Key`.
+
+The upload becomes a **draft** statement whose rows carry a proposed code each. The user reviews and corrects them with `PATCH statements/{id}/`, and `POST statements/{id}/validate/` creates the facts. Nothing is a fact before that review (FR-014).
+
+The file (one statement):
+
+- The first non-empty line is the header: `label` and `amount`, and optionally `code`, in any order and any case. Any other column is refused.
+- `amount` is blank for an empty cell (unknown, never zero), or a number in the reported scale: `1234.56`, `-1234.56`, `(1,234.56)` for a negative, and comma grouping such as `1,23,456.78`. The decimal separator is a point. The value is read exactly, never through a binary float, and the cell text is kept as the row's `raw_value`. Signs are kept: a cost written in parentheses arrives negative and is flagged by validation, not flipped.
+- `code` is optional. Without it, a code is proposed only when the label is exactly a line item's name, ignoring case, spaces and underscores (`Net income`, `total_assets`), and only for the statement's own type. There is no fuzzy matching.
+- UTF-8 text, with or without a byte-order mark. The file's content decides this, not the client's content type.
+
+Limits and refusals:
+
+| Case | Answer |
+|---|---|
+| File above `FINLUME_MAX_UPLOAD_BYTES` (1 MiB) | `413 payload_too_large`. A request clearly above it is refused from its `Content-Length`, before the body is read. The upload is kept in memory, never in a temporary file. |
+| More rows than `FINLUME_MAX_IMPORT_ROWS` (500), a bad header, not UTF-8 text, or broken quoting | `400`, `details.file` |
+| Row problems: not a number, more than 6 decimal places, too large as entered or once scaled, an unknown code, a code from another statement type or used twice, a missing label, the wrong number of columns | `400`, every problem at once in `details.rows.<line>.<column>`, keyed by the file's line number |
+| A statement of that type already existing for the period | `409` |
+
+On any refusal nothing is stored: neither the file nor a row. A row's `source_reference` is its file line (`line 7`).
+
+Response: `201`, the draft (as `GET statements/{id}/`), plus `document` (`{"id", "kind", "filename", "size_bytes", "sha256", "created_at"}`) and `warnings`. Uploading a file already uploaded to the workspace succeeds with a `duplicate_file` warning naming the earlier document. The file is stored privately under a random key and has no URL.
 
 ### `GET line-items/` (MVP step 3a)
 

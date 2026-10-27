@@ -24,7 +24,7 @@ context, the decision, alternatives considered, and consequences.
 | [ADR-0004](../decisions/ADR-0004-dependency-management.md) | Dependency management and lock files | Accepted |
 | [ADR-0005](../decisions/ADR-0005-private-document-storage.md) | Private document storage | Accepted |
 | [ADR-0006](../decisions/ADR-0006-client-stack.md) | Web and mobile client stack | Accepted (direction; not yet implemented) |
-| [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md) | Authentication, sessions and login protection for the MVP | Accepted (implemented in MVP step 1) |
+| [ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md) | Authentication, sessions and login protection for the MVP | Accepted; implemented (MVP PR 1b) |
 | [ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) | Organizations and workspace tenancy | Proposed |
 
 ### ADR-0001 — Modular monolith

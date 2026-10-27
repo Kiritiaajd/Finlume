@@ -249,6 +249,8 @@ Every variable has a placeholder in [`.env.example`](../../.env.example). Never 
 | `FINLUME_LOG_LEVEL` | Root log level. | `INFO` |
 | `FINLUME_ADMIN_URL_PATH` | URL prefix of the Django admin. | `admin/` |
 | `FINLUME_THROTTLE_ANON`, `FINLUME_THROTTLE_USER` | DRF throttle rates. | `60/minute`, `1000/hour` |
+| `FINLUME_THROTTLE_LOGIN_IP`, `FINLUME_THROTTLE_LOGIN_EMAIL` | Sign-in attempts per client IP and per email. | `5/minute`, `5/minute` |
+| `FINLUME_SESSION_AGE_SECONDS` | Session lifetime of inactivity; each request renews it. | `28800` (8 hours) |
 | `FINLUME_SECURE_SSL_REDIRECT` | Production: redirect HTTP to HTTPS. | `true` |
 | `FINLUME_TRUST_PROXY_SSL_HEADER` | Production: trust `X-Forwarded-Proto`. Enable **only** behind a TLS-terminating proxy. | `false` |
 | `FINLUME_HSTS_SECONDS`, `FINLUME_HSTS_INCLUDE_SUBDOMAINS`, `FINLUME_HSTS_PRELOAD` | Production HSTS. Enable only after HTTPS works on every host; start small (e.g. `3600`). | `0`, `false`, `false` |

@@ -103,7 +103,7 @@ silently.
 | Application logs | 30 days | Yes (log infrastructure) | Logs must not contain financial values |
 | Database and storage backups | Age out within 35 days | Yes | Deleted data therefore disappears from backups within 35 days. This is disclosed to users |
 | Generated exports | Not stored | — | Streamed only |
-| Sessions | 8 hours of inactivity, sliding ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md), from MVP step 1); expired rows cleared with `clearsessions` | Yes | Django's default of 2 weeks applies until step 1 |
+| Sessions | 8 hours of inactivity, sliding ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)); expired rows cleared with `clearsessions` | Yes (`FINLUME_SESSION_AGE_SECONDS`) | |
 
 ## 8. Logging and observability boundaries
 

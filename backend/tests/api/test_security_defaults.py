@@ -52,8 +52,9 @@ def user():
 def test_anonymous_requests_are_rejected_by_default(api_client):
     response = api_client.get("/api/v1/default-policy/")
 
-    # Session authentication sends no WWW-Authenticate challenge, so DRF uses 403.
-    assert response.status_code == 403
+    # The Session challenge makes DRF answer 401 rather than 403 (ADR-0007).
+    assert response.status_code == 401
+    assert response["WWW-Authenticate"] == "Session"
     assert response.json()["error"]["code"] == "not_authenticated"
 
 

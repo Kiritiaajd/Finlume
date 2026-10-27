@@ -2,9 +2,9 @@
 
 The Finlume web and mobile clients consume the same versioned REST API, served by Django REST Framework.
 
-> **Implementation status:** the only implemented endpoint is
-> `GET /api/v1/health/`. Every other resource in this document is designed
-> but not yet built. The global behaviours (versioning, error envelope,
+> **Implementation status:** the implemented endpoints are health and
+> authentication ([below](#implemented-endpoints)). Every other resource in
+> this document is designed but not yet built. The global behaviours (versioning, error envelope,
 > request IDs, pagination, throttling, authentication defaults) are already
 > configured in `backend/config/settings/base.py`.
 
@@ -64,7 +64,7 @@ Every error response uses one envelope, produced by `api.exceptions.api_exceptio
 |-------------|--------|------|
 | 400 | `validation_error` | Input failed validation. |
 | 400 | `parse_error` | Malformed JSON. |
-| 401 | `not_authenticated`, `authentication_failed` | Missing or invalid credentials. The response carries `WWW-Authenticate: Session` ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)). **Until MVP step 1 implements this, DRF answers `403`.** |
+| 401 | `not_authenticated`, `authentication_failed` | Missing or invalid credentials. The response carries `WWW-Authenticate: Session` ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)). |
 | 403 | `permission_denied` | Authenticated, but not allowed (e.g. a viewer attempting a write). A CSRF failure is also `403`. |
 | 404 | `not_found` | Unknown resource, or one the caller may not see. Existence is not revealed to callers without access. A non-member always gets `404` for a workspace and everything in it. |
 | 405 | `method_not_allowed` | Wrong HTTP method. |
@@ -110,7 +110,7 @@ Every response carries an `X-Request-ID` header. A caller-supplied `X-Request-ID
 
 ## Authentication and authorisation
 
-- Default authentication: `SessionAuthentication`. From MVP step 1, users sign in with their email address, and sessions expire after 8 hours of inactivity ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)).
+- Default authentication: `apps.accounts.api.authentication.SessionAuthentication`, DRF's session authentication plus the `Session` challenge. Users sign in with their email address, and sessions expire after 8 hours of inactivity (`FINLUME_SESSION_AGE_SECONDS`), renewed by every request ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)).
 - Default permission: `IsAuthenticated`. Every endpoint requires a logged-in user unless it explicitly opts out; today only the health endpoint does.
 - **Web client:** Django session cookie plus CSRF. Unsafe methods send the token in the `X-CSRFToken` header. The SPA is served from the same origin as the API, through a reverse proxy in production and the Vite dev proxy locally, so CORS is not needed ([ADR-0006](../decisions/ADR-0006-client-stack.md)).
 - **Mobile client:** token-based authentication, to be decided by an ADR when the mobile phase begins.
@@ -122,7 +122,8 @@ Every response carries an `X-Request-ID` header. A caller-supplied `X-Request-ID
 |-------|---------|---------|
 | Anonymous | `60/minute` | `FINLUME_THROTTLE_ANON` |
 | Authenticated user | `1000/hour` | `FINLUME_THROTTLE_USER` |
-| Login, per client IP and per submitted email (from MVP step 1) | `5/minute` each | To be added in step 1 ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md)) |
+| Sign-in, per client IP | `5/minute` | `FINLUME_THROTTLE_LOGIN_IP` |
+| Sign-in, per submitted email (hashed in the cache key) | `5/minute` | `FINLUME_THROTTLE_LOGIN_EMAIL` |
 
 Throttle state uses Django's default cache, which is per process. A multi-process deployment needs a shared cache before limits are exact (see [SCALABILITY_AND_DEPLOYMENT](../architecture/SCALABILITY_AND_DEPLOYMENT.md)). The health endpoint is not throttled.
 
@@ -130,7 +131,19 @@ Throttle state uses Django's default cache, which is per process. A multi-proces
 
 An OpenAPI 3 schema generated with drf-spectacular is planned for Phase 1, and typed web and mobile API clients will be generated from it. It is **not available yet**. Until then, this document is the contract.
 
-## Implemented endpoint
+## Implemented endpoints
+
+### Authentication ([ADR-0007](../decisions/ADR-0007-authentication-and-sessions.md))
+
+| Endpoint | Access | Success | Notes |
+|---|---|---|---|
+| `GET auth/csrf/` | Public | `204`, sets the `csrftoken` cookie | Call once before the first write. The client sends the cookie value in `X-CSRFToken` |
+| `POST auth/register/` `{"email", "password"}` | Public, CSRF-checked | `201`, the current user; signed in | Creates the personal workspace in the same transaction. A duplicate email (any case) → `409 conflict`; a weak password → `400` with `details.password` |
+| `POST auth/login/` `{"email", "password"}` | Public, CSRF-checked, throttled | `200`, the current user | Email matched regardless of case. Any failure (wrong password, unknown email, inactive account) → the same `401 authentication_failed`. Every attempt is audited |
+| `POST auth/logout/` | Signed in | `204` | Ends the session server-side |
+| `GET me/` | Signed in | `200`, the current user | |
+
+Current user: `{"id": "<uuid>", "email": "…", "personal_workspace_id": "<uuid>"}`.
 
 ### `GET /api/v1/health/`
 

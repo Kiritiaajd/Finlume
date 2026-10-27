@@ -112,7 +112,7 @@ Conventions: [API_CONVENTIONS.md](../api/API_CONVENTIONS.md).
 | Web authentication | Django session + CSRF, same origin through the reverse proxy (Vite dev proxy locally, so no CORS dependency) | Designed (Phase 1) |
 | Mobile authentication | Token-based strategy, decided in a future ADR | Future |
 | Tenancy | `Workspace` (personal or business) is the ownership and permission boundary | Designed (Phase 1) |
-| Object-level authorization | `Membership` role (owner, editor, viewer) checked in the application layer and enforced by workspace-scoped querysets | Designed (Phase 1) |
+| Object-level authorization | `WorkspaceMembership` role (owner, editor, viewer) checked by one resolver in `services/access/` and enforced by workspace-scoped querysets ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md)) | Designed (Phase 1) |
 | Internal administration | Django Admin at a configurable path (`FINLUME_ADMIN_URL_PATH`), staff only | Implemented |
 
 Details: [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md).
@@ -122,7 +122,7 @@ Details: [SECURITY_AND_PRIVACY.md](SECURITY_AND_PRIVACY.md).
 | Layer | Location | Responsibility | Status |
 |-------|----------|----------------|--------|
 | Presentation / API | `backend/apps/*` (views, serializers, URLs, admin) | HTTP, input parsing, output shaping | Implemented (core, accounts) |
-| Application | `backend/application/` | Use cases, transactions, authorization orchestration, mapping between ORM models and domain objects | Phase 1 |
+| Application | `backend/services/` | Use cases, transactions, authorization orchestration, mapping between ORM models and domain objects | Scaffolded (Phase 1) |
 | Domain | `backend/domain/` | Financial concepts, validation rules and calculations. Pure Python, no Django | Implemented (engine 0.1.0) |
 | Infrastructure | `backend/infrastructure/` and Django models in `backend/apps/*` | Persistence, private storage, later jobs and external providers | Implemented (storage) |
 

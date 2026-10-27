@@ -15,7 +15,7 @@ Build one deployable Django backend, structured as a **modular monolith** with f
 
 ```text
 apps/ (presentation: DRF views, serializers; persistence: models, migrations, admin)
-  └─► application/ (use cases: coordinate domain logic and persistence)    [introduced with first use case]
+  └─► application/ (use cases: coordinate domain logic and persistence)    [package named services/, see note]
         └─► domain/ (pure Python: financial concepts, validation, calculations)
 infrastructure/ (adapters: storage, external providers, background jobs) ─► used by apps/application
 ```
@@ -46,3 +46,14 @@ infrastructure/ (adapters: storage, external providers, background jobs) ─► 
 
 - A module needs independent scaling or a different runtime, for example CPU-heavy PDF extraction. Consider moving it to a background worker first ([SCALABILITY_AND_DEPLOYMENT](../architecture/SCALABILITY_AND_DEPLOYMENT.md)).
 - The calculation engine needs to be published as a standalone library.
+
+## Note 2026-10-27: the application layer is `backend/services/`
+
+The application layer was scaffolded for MVP step 1 under the package name **`services/`**,
+with one sub-package per business **capability**: the tenancy ones now (`access`,
+`accounts`, `organizations`, `workspaces`), and later `statement_analysis`, `documents`,
+`stock_research` and `portfolio_analysis`
+([DOMAIN_BOUNDARIES §3.3](../architecture/DOMAIN_BOUNDARIES.md#33-service-capabilities-backendservices)).
+These are modules inside the one deployable, not microservices. The decision is unchanged:
+same layer, same dependency direction, and no DRF imports, which `tests/test_architecture.py`
+enforces. Only the package name differs from the diagram above.

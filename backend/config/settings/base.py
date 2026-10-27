@@ -39,6 +39,9 @@ INSTALLED_APPS = [
     # Finlume modules
     "apps.core",
     "apps.accounts",
+    "apps.organizations",
+    "apps.workspaces",
+    "apps.audit",
 ]
 
 MIDDLEWARE = [

@@ -68,6 +68,13 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - teams deferred.
 
   The data model, domain boundaries, product scope (FR-003 to FR-005, acceptance criterion 2), API conventions (every tenant resource nested under its workspace; `409 conflict`), data lifecycle and MVP plan are updated to match.
+- Scaffold for MVP step 1. It adds docstring-only modules plus configuration, and no behaviour yet:
+  - `backend/services/` is the application layer, holding business workflows with one sub-package per capability. The tenancy capabilities `access`, `accounts`, `organizations` and `workspaces` exist now. `statement_analysis`, `documents`, `stock_research` and `portfolio_analysis` are created with their first feature (DOMAIN_BOUNDARIES §3.3).
+  - The new Django apps `organizations`, `workspaces` and `audit` are registered in `INSTALLED_APPS`. Their URL modules are included in `/api/v1/` with no routes yet.
+  - Placeholder modules for the authentication work in `accounts`.
+  - New test packages.
+  - `services` is added to Ruff's first-party packages and to the coverage sources.
+  - `tests/test_architecture.py` now also forbids `services` imports in the domain and DRF imports in `services`.
 
 ### Changed
 

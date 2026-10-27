@@ -15,7 +15,7 @@ Decision IDs (A1–A12) refer to [FOUNDATION_AUDIT §8](../architecture/FOUNDATI
 ## Working rules for every step
 
 - One pull request per step, or per sub-step if it grows large. CI must be green, on PostgreSQL.
-- New Django apps only when their first model or endpoint lands. Business rules live in `backend/application/` (use cases) and `backend/domain/` (pure logic), not in views or serializers.
+- New Django apps only when their first model or endpoint lands. Business rules live in `backend/services/` (workflows, one sub-package per capability; steps 2–5 build `services/statement_analysis/`, and step 4 also `services/documents/`) and `backend/domain/` (pure logic), not in views or serializers.
 - Every tenant-owned query is scoped by workspace membership in one place: an application-layer helper plus queryset scoping. Never ad hoc in views.
 - Another workspace's objects return `404`, never `403`, so their existence is not revealed.
 - Fixtures use fictional data only. API tests cover the error envelope, permissions by role, and pagination.
@@ -55,7 +55,7 @@ Its acceptance criteria and query budgets are in that plan, §4 and §8.
   - `CHECK (version = 1) = (supersedes IS NULL)`;
   - a currency format CHECK;
   - `UNIQUE(statement, line_item)` on facts.
-- **Mapping layer:** in `application/` (or `infrastructure/`), turn persisted facts into `FinancialFactSet` and back. The domain never sees ORM objects.
+- **Mapping layer:** in `services/statement_analysis/`, turn persisted facts into `FinancialFactSet` and back. The domain never sees ORM objects.
 - **Assembly rule (A2):** one analysis input = the latest validated, non-superseded statement of each type for (`entity`, `period_start`, `period_end`, `period_type`), all in one currency.
 - **Acceptance:**
   - Migration tests on **PostgreSQL**.
@@ -93,7 +93,7 @@ Its acceptance criteria and query budgets are in that plan, §4 and §8.
   - `FILE_UPLOAD_TEMP_DIR` set to a private directory.
   - Content sniffing (UTF-8 text, CSV); SHA-256; random storage key in `private_documents`.
   - A duplicate-file warning.
-- **Parsing (`ingestion` app, logic in `application/` or `domain/`):**
+- **Parsing:** the workflow is in `services/statement_analysis/`, and file intake in `services/documents/`. Pure parsing rules go in `domain/`. There is no `ingestion` app unless import batches need tables:
   - A strict, documented column schema (label, amount, optional code).
   - Explicit decimal format; parentheses for negatives recorded in `raw_value`.
   - Never a float intermediate.
@@ -113,7 +113,7 @@ Its acceptance criteria and query budgets are in that plan, §4 and §8.
 
 - **Domain:** `fingerprint(facts)` as a pure function in the canonical format (FA-11).
 - **App:** `analysis` (`AnalysisRun`, `MetricResult`, `AnalysisIssue`, plus the input-fact join, `RESTRICT`).
-- **Use case:**
+- **Workflow** (`services/statement_analysis/`):
   1. Assemble the inputs (A2).
   2. Call `run_statement_analysis`.
   3. Persist the run, results (`numeric(24,6)`; values below `MAX_RESULT_ABS` by construction), issues, inputs as decimal strings, `engine_version` and fingerprint in one transaction.

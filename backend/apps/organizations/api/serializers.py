@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_serializer
 from rest_framework import serializers
 
 from apps.organizations.models import Organization, OrganizationMembership, OrganizationRole
@@ -15,13 +16,32 @@ class OrganizationNameSerializer(serializers.Serializer[Any]):
     name = serializers.CharField(max_length=200)
 
 
+@extend_schema_serializer(component_name="OrganizationMemberAdd")
 class MemberAddSerializer(serializers.Serializer[Any]):
     email = serializers.EmailField(max_length=254)
     role = serializers.ChoiceField(choices=OrganizationRole.choices)
 
 
+@extend_schema_serializer(component_name="OrganizationMemberRole")
 class MemberRoleSerializer(serializers.Serializer[Any]):
     role = serializers.ChoiceField(choices=OrganizationRole.choices)
+
+
+# --- Responses (for the OpenAPI schema; the views build them below) -------------
+
+
+class OrganizationSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    my_role = serializers.ChoiceField(choices=OrganizationRole.choices)
+    created_at = serializers.DateTimeField()
+
+
+class OrganizationMemberSerializer(serializers.Serializer[Any]):
+    user_id = serializers.UUIDField()
+    email = serializers.EmailField()
+    role = serializers.ChoiceField(choices=OrganizationRole.choices)
+    joined_at = serializers.DateTimeField()
 
 
 def organization_data(organization: Organization, my_role: str) -> dict[str, Any]:

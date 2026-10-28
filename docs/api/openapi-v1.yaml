@@ -1,0 +1,3244 @@
+openapi: 3.0.3
+info:
+  title: Finlume API
+  version: 1 (v1)
+  description: Version 1 of the Finlume API. Conventions (errors, pagination, decimals
+    as strings, idempotency) are described in docs/api/API_CONVENTIONS.md.
+paths:
+  /api/v1/auth/csrf/:
+    get:
+      operationId: accounts_csrf_get
+      description: Sets the CSRF cookie that the client echoes in ``X-CSRFToken``
+        on writes.
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      - {}
+      responses:
+        '204':
+          description: No response body
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/login/:
+    post:
+      operationId: accounts_login_post
+      description: 'Base for sign-in and registration: open to anyone, but CSRF-checked.'
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CredentialsRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/logout/:
+    post:
+      operationId: accounts_logout_post
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/register/:
+    post:
+      operationId: accounts_register_post
+      description: 'Base for sign-in and registration: open to anyone, but CSRF-checked.'
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistrationRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      - {}
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/health/:
+    get:
+      operationId: core_health_get
+      description: |-
+        Readiness probe: is the application up and can it reach its database?
+
+        Public and unthrottled so load balancers and uptime monitors can poll it.
+        It reports only coarse status, never versions, hosts or error text.
+      tags:
+      - api
+      security:
+      - {}
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+        '503':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/line-items/:
+    get:
+      operationId: financial_records_line_item_taxonomy_get
+      description: |-
+        The canonical line items with their definitions: help text for entry forms.
+
+        Reference data, the same for everyone, so it is one complete page.
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedLineItemDefinitionList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/me/:
+    get:
+      operationId: accounts_me_get
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentUser'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/organizations/:
+    get:
+      operationId: organizations_organization_list_get
+      description: The caller's organizations with their role in each; create an organization.
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrganizationList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: organizations_organization_list_post
+      description: The caller's organizations with their role in each; create an organization.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationNameRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/organizations/{organization_id}/:
+    get:
+      operationId: organizations_organization_detail_get
+      description: |-
+        Resolves the caller's organization membership once per request.
+
+        Members read; admins write. Organization membership never opens the
+        organization's workspaces (ADR-0008).
+      parameters:
+      - in: path
+        name: organization_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      operationId: organizations_organization_detail_patch
+      description: |-
+        Resolves the caller's organization membership once per request.
+
+        Members read; admins write. Organization membership never opens the
+        organization's workspaces (ADR-0008).
+      parameters:
+      - in: path
+        name: organization_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationNameRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Organization'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/organizations/{organization_id}/members/:
+    get:
+      operationId: organizations_member_list_get
+      description: |-
+        Resolves the caller's organization membership once per request.
+
+        Members read; admins write. Organization membership never opens the
+        organization's workspaces (ADR-0008).
+      parameters:
+      - in: path
+        name: organization_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedOrganizationMemberList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: organizations_member_list_post
+      description: |-
+        Resolves the caller's organization membership once per request.
+
+        Members read; admins write. Organization membership never opens the
+        organization's workspaces (ADR-0008).
+      parameters:
+      - in: path
+        name: organization_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationMemberAddRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/organizations/{organization_id}/members/{user_id}/:
+    patch:
+      operationId: organizations_member_detail_patch
+      description: |-
+        Resolves the caller's organization membership once per request.
+
+        Members read; admins write. Organization membership never opens the
+        organization's workspaces (ADR-0008).
+      parameters:
+      - in: path
+        name: organization_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrganizationMemberRoleRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrganizationMember'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      operationId: organizations_member_detail_delete
+      description: |-
+        Resolves the caller's organization membership once per request.
+
+        Members read; admins write. Organization membership never opens the
+        organization's workspaces (ADR-0008).
+      parameters:
+      - in: path
+        name: organization_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/:
+    get:
+      operationId: workspaces_workspace_list_get
+      description: The caller's workspaces with their role in each; create an organization
+        workspace.
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkspaceList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: workspaces_workspace_list_post
+      description: The caller's workspaces with their role in each; create an organization
+        workspace.
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceCreateRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/:
+    get:
+      operationId: workspaces_workspace_detail_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      operationId: workspaces_workspace_detail_patch
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceRenameRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Workspace'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/analyses/{run_id}/:
+    get:
+      operationId: analysis_analysis_detail_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: run_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/entities/:
+    get:
+      operationId: financial_records_entity_list_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedEntityList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: financial_records_entity_list_post
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntityInputRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/entities/{entity_id}/:
+    get:
+      operationId: financial_records_entity_detail_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: entity_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entity'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/entities/{entity_id}/analyses/:
+    get:
+      operationId: analysis_entity_analysis_list_get
+      description: An entity's runs, latest first; run a new analysis for a period.
+      parameters:
+      - in: path
+        name: entity_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedAnalysisRunList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: analysis_entity_analysis_list_post
+      description: An entity's runs, latest first; run a new analysis for a period.
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+          format: uuid
+        description: A client-generated UUID. Repeating it with the same request returns
+          the original result; with a different request, 409.
+      - in: path
+        name: entity_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalysisRequestRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RunDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/entities/{entity_id}/imports/:
+    post:
+      operationId: financial_records_entity_import_post
+      description: |-
+        Upload a statement CSV; it becomes a draft with proposed codes (MVP step 4).
+
+        The draft is then reviewed and validated like any other (step 3).
+      parameters:
+      - in: header
+        name: Idempotency-Key
+        schema:
+          type: string
+          format: uuid
+        description: A client-generated UUID. Repeating it with the same request returns
+          the original result; with a different request, 409.
+      - in: path
+        name: entity_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StatementImportRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementImportResult'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/entities/{entity_id}/statements/:
+    get:
+      operationId: financial_records_entity_statement_list_get
+      description: Every version of every statement of one entity; create a draft.
+      parameters:
+      - in: path
+        name: entity_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedStatementList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: financial_records_entity_statement_list_post
+      description: Every version of every statement of one entity; create a draft.
+      parameters:
+      - in: path
+        name: entity_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatementInputRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/members/:
+    get:
+      operationId: workspaces_member_list_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedWorkspaceMemberList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: workspaces_member_list_post
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberAddRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/members/{user_id}/:
+    patch:
+      operationId: workspaces_member_detail_patch
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspaceMemberRoleRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceMember'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    delete:
+      operationId: workspaces_member_detail_delete
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: user_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '204':
+          description: No response body
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/reports/:
+    get:
+      operationId: reports_report_list_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedReportList'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    post:
+      operationId: reports_report_list_post
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportInputRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/reports/{report_id}/:
+    get:
+      operationId: reports_report_detail_get
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: report_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      operationId: reports_report_detail_patch
+      description: |-
+        Base view for tenant resources.
+
+        Reads need ``read_role``; writes need ``write_role``. A view overrides
+        ``required_role`` for anything finer.
+      parameters:
+      - in: path
+        name: report_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReportUpdateRequest'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/statements/{statement_id}/:
+    get:
+      operationId: financial_records_statement_detail_get
+      description: One statement version with its raw rows (and facts, once validated);
+        edit a draft.
+      parameters:
+      - in: path
+        name: statement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+    patch:
+      operationId: financial_records_statement_detail_patch
+      description: One statement version with its raw rows (and facts, once validated);
+        edit a draft.
+      parameters:
+      - in: path
+        name: statement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatementUpdateRequest'
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/statements/{statement_id}/line-items/{row_id}/:
+    patch:
+      operationId: financial_records_statement_line_item_patch
+      description: Review one draft row's mapping; its amount and original text never
+        change.
+      parameters:
+      - in: path
+        name: row_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: statement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RowMappingRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LineItem'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/statements/{statement_id}/restatements/:
+    post:
+      operationId: financial_records_statement_restatement_post
+      description: Start the next version of a validated statement, as a draft.
+      parameters:
+      - in: path
+        name: statement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestatementInputRequest'
+        required: true
+      security:
+      - sessionAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementDetail'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/workspaces/{workspace_id}/statements/{statement_id}/validate/:
+    post:
+      operationId: financial_records_statement_validate_post
+      description: 'Draft → validated: saves the facts and returns consistency warnings,
+        never blocking.'
+      parameters:
+      - in: path
+        name: statement_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - in: path
+        name: workspace_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - api
+      security:
+      - sessionAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementValidation'
+          description: ''
+        4XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+        5XX:
+          description: An error, in the standard envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  schemas:
+    AnalysisRequestRequest:
+      type: object
+      description: The reporting period to analyse; every statement type of it is
+        used.
+      properties:
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+      required:
+      - period_end
+      - period_start
+      - period_type
+    CredentialsRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
+    CurrentUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        email:
+          type: string
+          format: email
+          readOnly: true
+        personal_workspace_id:
+          type: string
+          format: uuid
+          nullable: true
+          readOnly: true
+      required:
+      - email
+      - id
+      - personal_workspace_id
+    Document:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          $ref: '#/components/schemas/DocumentKindEnum'
+        filename:
+          type: string
+          nullable: true
+        size_bytes:
+          type: integer
+          nullable: true
+        sha256:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - filename
+      - id
+      - kind
+      - sha256
+      - size_bytes
+    DocumentKindEnum:
+      enum:
+      - manual_entry
+      - csv_upload
+      type: string
+      description: |-
+        * `manual_entry` - Manual entry
+        * `csv_upload` - CSV upload
+    Entity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        entity_type:
+          $ref: '#/components/schemas/EntityTypeEnum'
+        default_currency:
+          type: string
+          nullable: true
+        fiscal_year_end_month:
+          type: integer
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - default_currency
+      - entity_type
+      - fiscal_year_end_month
+      - id
+      - name
+    EntityInputRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+        entity_type:
+          $ref: '#/components/schemas/EntityTypeEnum'
+        default_currency:
+          oneOf:
+          - type: string
+            default: ''
+            maxLength: 3
+            pattern: ^[A-Z]{3}$
+          - type: string
+            maxLength: 0
+        fiscal_year_end_month:
+          type: integer
+          maximum: 12
+          minimum: 1
+          nullable: true
+      required:
+      - entity_type
+      - name
+    EntityTypeEnum:
+      enum:
+      - business
+      - individual
+      - listed_company
+      type: string
+      description: |-
+        * `business` - Business
+        * `individual` - Individual
+        * `listed_company` - Listed company
+    Fact:
+      type: object
+      description: A normalised figure in base units, as a decimal string, traced
+        to its row.
+      properties:
+        line_item:
+          $ref: '#/components/schemas/LineItemCodeEnum'
+        value:
+          type: string
+        row_id:
+          type: string
+          format: uuid
+        review_status:
+          $ref: '#/components/schemas/ReviewStatusEnum'
+      required:
+      - line_item
+      - review_status
+      - row_id
+      - value
+    Health:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/HealthStatusEnum'
+        checks:
+          $ref: '#/components/schemas/HealthChecks'
+      required:
+      - checks
+      - status
+    HealthChecks:
+      type: object
+      properties:
+        database:
+          $ref: '#/components/schemas/HealthStatusEnum'
+      required:
+      - database
+    HealthStatusEnum:
+      enum:
+      - ok
+      - unavailable
+      type: string
+      description: |-
+        * `ok` - ok
+        * `unavailable` - unavailable
+    ImportWarning:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/ImportWarningCodeEnum'
+        message:
+          type: string
+        document_id:
+          type: string
+          format: uuid
+      required:
+      - code
+      - document_id
+      - message
+    ImportWarningCodeEnum:
+      enum:
+      - duplicate_file
+      type: string
+      description: '* `duplicate_file` - duplicate_file'
+    Issue:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/IssueCodeEnum'
+        severity:
+          $ref: '#/components/schemas/SeverityEnum'
+        message:
+          type: string
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItemCodeEnum'
+      required:
+      - code
+      - line_items
+      - message
+      - severity
+    IssueCodeEnum:
+      enum:
+      - missing_input
+      - zero_denominator
+      - negative_denominator
+      - unexpected_sign
+      - balance_sheet_imbalance
+      - subtotal_mismatch
+      - result_out_of_range
+      type: string
+      description: |-
+        * `missing_input` - missing_input
+        * `zero_denominator` - zero_denominator
+        * `negative_denominator` - negative_denominator
+        * `unexpected_sign` - unexpected_sign
+        * `balance_sheet_imbalance` - balance_sheet_imbalance
+        * `subtotal_mismatch` - subtotal_mismatch
+        * `result_out_of_range` - result_out_of_range
+    LineItem:
+      type: object
+      description: A raw row as entered; ``amount`` is in the reported scale, as a
+        decimal string.
+      properties:
+        id:
+          type: string
+          format: uuid
+        row_number:
+          type: integer
+        label:
+          type: string
+        line_item_code:
+          allOf:
+          - $ref: '#/components/schemas/LineItemCodeEnum'
+          nullable: true
+        amount:
+          type: string
+          nullable: true
+        raw_value:
+          type: string
+        source_reference:
+          type: string
+          nullable: true
+      required:
+      - amount
+      - id
+      - label
+      - line_item_code
+      - raw_value
+      - row_number
+      - source_reference
+    LineItemCodeEnum:
+      enum:
+      - revenue
+      - cost_of_revenue
+      - gross_profit
+      - operating_expenses
+      - operating_income
+      - interest_expense
+      - income_before_tax
+      - income_tax_expense
+      - net_income
+      - cash_and_cash_equivalents
+      - inventories
+      - total_current_assets
+      - total_assets
+      - total_current_liabilities
+      - total_liabilities
+      - total_debt
+      - total_equity
+      - net_cash_from_operating_activities
+      - capital_expenditure
+      - net_cash_from_investing_activities
+      - net_cash_from_financing_activities
+      type: string
+      description: |-
+        * `revenue` - revenue
+        * `cost_of_revenue` - cost_of_revenue
+        * `gross_profit` - gross_profit
+        * `operating_expenses` - operating_expenses
+        * `operating_income` - operating_income
+        * `interest_expense` - interest_expense
+        * `income_before_tax` - income_before_tax
+        * `income_tax_expense` - income_tax_expense
+        * `net_income` - net_income
+        * `cash_and_cash_equivalents` - cash_and_cash_equivalents
+        * `inventories` - inventories
+        * `total_current_assets` - total_current_assets
+        * `total_assets` - total_assets
+        * `total_current_liabilities` - total_current_liabilities
+        * `total_liabilities` - total_liabilities
+        * `total_debt` - total_debt
+        * `total_equity` - total_equity
+        * `net_cash_from_operating_activities` - net_cash_from_operating_activities
+        * `capital_expenditure` - capital_expenditure
+        * `net_cash_from_investing_activities` - net_cash_from_investing_activities
+        * `net_cash_from_financing_activities` - net_cash_from_financing_activities
+    LineItemDefinition:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/LineItemCodeEnum'
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        label:
+          type: string
+        definition:
+          type: string
+        sign:
+          $ref: '#/components/schemas/SignEnum'
+      required:
+      - code
+      - definition
+      - label
+      - sign
+      - statement_type
+    LineItemInputRequest:
+      type: object
+      properties:
+        label:
+          type: string
+          minLength: 1
+          maxLength: 255
+        line_item_code:
+          allOf:
+          - $ref: '#/components/schemas/LineItemCodeEnum'
+          default: ''
+        amount:
+          type: string
+          description: A decimal string such as "1250.50" or "-3.25"; never a JSON
+            number. At most 6 decimal places and below 10^24.
+          example: '1250.50'
+          nullable: true
+        source_reference:
+          type: string
+          default: ''
+          maxLength: 64
+      required:
+      - label
+    Metric:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/MetricCodeEnum'
+        name:
+          type: string
+        value:
+          type: string
+          nullable: true
+          description: Decimal string; null when not computable, never 0.
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+        methodology:
+          type: string
+        inputs:
+          type: object
+          additionalProperties:
+            type: string
+          description: Line-item code to decimal string, base units.
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+      required:
+      - code
+      - inputs
+      - issues
+      - methodology
+      - name
+      - unit
+      - value
+    MetricCodeEnum:
+      enum:
+      - gross_margin
+      - operating_margin
+      - net_margin
+      - current_ratio
+      - debt_to_equity
+      - return_on_equity
+      - return_on_assets
+      type: string
+      description: |-
+        * `gross_margin` - gross_margin
+        * `operating_margin` - operating_margin
+        * `net_margin` - net_margin
+        * `current_ratio` - current_ratio
+        * `debt_to_equity` - debt_to_equity
+        * `return_on_equity` - return_on_equity
+        * `return_on_assets` - return_on_assets
+    Organization:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        my_role:
+          $ref: '#/components/schemas/OrganizationRoleEnum'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - my_role
+      - name
+    OrganizationMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/OrganizationRoleEnum'
+        joined_at:
+          type: string
+          format: date-time
+      required:
+      - email
+      - joined_at
+      - role
+      - user_id
+    OrganizationMemberAddRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        role:
+          $ref: '#/components/schemas/OrganizationRoleEnum'
+      required:
+      - email
+      - role
+    OrganizationMemberRoleRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/OrganizationRoleEnum'
+      required:
+      - role
+    OrganizationNameRequest:
+      type: object
+      description: Create and rename take the same body.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - name
+    OrganizationRoleEnum:
+      enum:
+      - admin
+      - member
+      type: string
+      description: |-
+        * `admin` - Admin
+        * `member` - Member
+    PaginatedAnalysisRunList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunSummary'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedEntityList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedLineItemDefinitionList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItemDefinition'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedOrganizationList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Organization'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedOrganizationMemberList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrganizationMember'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedReportList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportSummary'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedStatementList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Statement'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedWorkspaceList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/Workspace'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PaginatedWorkspaceMemberList:
+      type: object
+      properties:
+        count:
+          type: integer
+        next:
+          type: string
+          format: uri
+          nullable: true
+        previous:
+          type: string
+          format: uri
+          nullable: true
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceMember'
+      required:
+      - count
+      - next
+      - previous
+      - results
+    PeriodTypeEnum:
+      enum:
+      - annual
+      - half_year
+      - quarter
+      - month
+      - other
+      type: string
+      description: |-
+        * `annual` - annual
+        * `half_year` - half_year
+        * `quarter` - quarter
+        * `month` - month
+        * `other` - other
+    RegistrationRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 128
+      required:
+      - email
+      - password
+    ReportDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        notes:
+          type: string
+          description: The user's own commentary.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        runs:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportRun'
+      required:
+      - created_at
+      - id
+      - notes
+      - runs
+      - title
+      - updated_at
+    ReportInputRequest:
+      type: object
+      description: Create a report.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: string
+          default: ''
+          maxLength: 10000
+        run_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+      required:
+      - title
+    ReportIssue:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/IssueCodeEnum'
+        severity:
+          $ref: '#/components/schemas/SeverityEnum'
+        message:
+          type: string
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItemCodeEnum'
+        metric_code:
+          allOf:
+          - $ref: '#/components/schemas/MetricCodeEnum'
+          nullable: true
+      required:
+      - code
+      - line_items
+      - message
+      - metric_code
+      - severity
+    ReportMetric:
+      type: object
+      properties:
+        code:
+          $ref: '#/components/schemas/MetricCodeEnum'
+        name:
+          type: string
+        value:
+          type: string
+          nullable: true
+        unit:
+          $ref: '#/components/schemas/UnitEnum'
+      required:
+      - code
+      - name
+      - unit
+      - value
+    ReportRun:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        engine_version:
+          type: string
+        input_fingerprint:
+          type: string
+        uses_superseded_statement:
+          type: boolean
+          description: True once a statement this run used was restated; the run keeps
+            its figures.
+        created_at:
+          type: string
+          format: date-time
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportMetric'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReportIssue'
+      required:
+      - created_at
+      - currency
+      - engine_version
+      - entity_id
+      - id
+      - input_fingerprint
+      - issues
+      - metrics
+      - period_end
+      - period_start
+      - period_type
+      - uses_superseded_statement
+    ReportSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        run_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - run_count
+      - title
+      - updated_at
+    ReportUpdateRequest:
+      type: object
+      description: Change part of a report (PATCH); ``run_ids`` replaces the whole
+        ordered list.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        notes:
+          type: string
+          default: ''
+          maxLength: 10000
+        run_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    ReportedScaleEnum:
+      enum:
+      - units
+      - thousands
+      - lakhs
+      - millions
+      - crores
+      - billions
+      type: string
+      description: |-
+        * `units` - units
+        * `thousands` - thousands
+        * `lakhs` - lakhs
+        * `millions` - millions
+        * `crores` - crores
+        * `billions` - billions
+    RestatementInputRequest:
+      type: object
+      description: Restate ``context["statement"]``; without ``line_items`` its rows
+        are copied.
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItemInputRequest'
+          maxItems: 500
+      required:
+      - reason
+    ReviewStatusEnum:
+      enum:
+      - unreviewed
+      - confirmed
+      - rejected
+      type: string
+      description: |-
+        * `unreviewed` - Unreviewed
+        * `confirmed` - Confirmed
+        * `rejected` - Rejected
+    RowMappingRequest:
+      type: object
+      description: Map one draft row to a code, or unmap it with a blank code.
+      properties:
+        line_item_code:
+          $ref: '#/components/schemas/LineItemCodeEnum'
+      required:
+      - line_item_code
+    RunDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        engine_version:
+          type: string
+        input_fingerprint:
+          type: string
+        uses_superseded_statement:
+          type: boolean
+          description: True once a statement this run used was restated; the run keeps
+            its figures.
+        created_at:
+          type: string
+          format: date-time
+        metrics:
+          type: array
+          items:
+            $ref: '#/components/schemas/Metric'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+        inputs:
+          type: array
+          items:
+            $ref: '#/components/schemas/RunInput'
+      required:
+      - created_at
+      - currency
+      - engine_version
+      - entity_id
+      - id
+      - input_fingerprint
+      - inputs
+      - issues
+      - metrics
+      - period_end
+      - period_start
+      - period_type
+      - uses_superseded_statement
+    RunInput:
+      type: object
+      description: One figure the engine saw, traced to its row, statement version
+        and document.
+      properties:
+        line_item:
+          $ref: '#/components/schemas/LineItemCodeEnum'
+        value:
+          type: string
+        row_id:
+          type: string
+          format: uuid
+        statement_id:
+          type: string
+          format: uuid
+        statement_version:
+          type: integer
+        document_id:
+          type: string
+          format: uuid
+      required:
+      - document_id
+      - line_item
+      - row_id
+      - statement_id
+      - statement_version
+      - value
+    RunSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        engine_version:
+          type: string
+        input_fingerprint:
+          type: string
+        uses_superseded_statement:
+          type: boolean
+          description: True once a statement this run used was restated; the run keeps
+            its figures.
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - currency
+      - engine_version
+      - entity_id
+      - id
+      - input_fingerprint
+      - period_end
+      - period_start
+      - period_type
+      - uses_superseded_statement
+    SeverityEnum:
+      enum:
+      - info
+      - warning
+      - error
+      type: string
+      description: |-
+        * `info` - info
+        * `warning` - warning
+        * `error` - error
+    SignEnum:
+      enum:
+      - non_negative
+      - non_positive
+      - signed
+      type: string
+      description: |-
+        * `non_negative` - non_negative
+        * `non_positive` - non_positive
+        * `signed` - signed
+    Statement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        status:
+          $ref: '#/components/schemas/StatementStatusEnum'
+        version:
+          type: integer
+        supersedes_id:
+          type: string
+          format: uuid
+          nullable: true
+        restatement_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - currency
+      - entity_id
+      - id
+      - period_end
+      - period_start
+      - period_type
+      - reported_scale
+      - restatement_reason
+      - statement_type
+      - status
+      - supersedes_id
+      - updated_at
+      - version
+    StatementDetail:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        status:
+          $ref: '#/components/schemas/StatementStatusEnum'
+        version:
+          type: integer
+        supersedes_id:
+          type: string
+          format: uuid
+          nullable: true
+        restatement_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItem'
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fact'
+      required:
+      - created_at
+      - currency
+      - entity_id
+      - facts
+      - id
+      - line_items
+      - period_end
+      - period_start
+      - period_type
+      - reported_scale
+      - restatement_reason
+      - statement_type
+      - status
+      - supersedes_id
+      - updated_at
+      - version
+    StatementImportRequest:
+      type: object
+      description: A statement CSV (multipart) and the statement it holds.
+      properties:
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+          pattern: ^[A-Z]{3}$
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        file:
+          type: string
+          format: binary
+      required:
+      - currency
+      - file
+      - period_end
+      - period_start
+      - period_type
+      - reported_scale
+      - statement_type
+    StatementImportResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        status:
+          $ref: '#/components/schemas/StatementStatusEnum'
+        version:
+          type: integer
+        supersedes_id:
+          type: string
+          format: uuid
+          nullable: true
+        restatement_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItem'
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fact'
+        document:
+          $ref: '#/components/schemas/Document'
+        warnings:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportWarning'
+      required:
+      - created_at
+      - currency
+      - document
+      - entity_id
+      - facts
+      - id
+      - line_items
+      - period_end
+      - period_start
+      - period_type
+      - reported_scale
+      - restatement_reason
+      - statement_type
+      - status
+      - supersedes_id
+      - updated_at
+      - version
+      - warnings
+    StatementInputRequest:
+      type: object
+      description: Create a draft, or (``partial=True`` with ``context["statement"]``)
+        edit one.
+      properties:
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+          pattern: ^[A-Z]{3}$
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItemInputRequest'
+          maxItems: 500
+      required:
+      - currency
+      - period_end
+      - period_start
+      - period_type
+      - reported_scale
+      - statement_type
+    StatementStatusEnum:
+      enum:
+      - draft
+      - validated
+      - superseded
+      type: string
+      description: |-
+        * `draft` - Draft
+        * `validated` - Validated
+        * `superseded` - Superseded
+    StatementTypeEnum:
+      enum:
+      - income_statement
+      - balance_sheet
+      - cash_flow
+      type: string
+      description: |-
+        * `income_statement` - income_statement
+        * `balance_sheet` - balance_sheet
+        * `cash_flow` - cash_flow
+    StatementUpdateRequest:
+      type: object
+      description: 'Edit a draft (PATCH): send only what changes; ``context["statement"]``
+        fills the rest.'
+      properties:
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+          minLength: 1
+          maxLength: 3
+          pattern: ^[A-Z]{3}$
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItemInputRequest'
+          maxItems: 500
+    StatementValidation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entity_id:
+          type: string
+          format: uuid
+        statement_type:
+          $ref: '#/components/schemas/StatementTypeEnum'
+        period_start:
+          type: string
+          format: date
+        period_end:
+          type: string
+          format: date
+        period_type:
+          $ref: '#/components/schemas/PeriodTypeEnum'
+        currency:
+          type: string
+        reported_scale:
+          $ref: '#/components/schemas/ReportedScaleEnum'
+        status:
+          $ref: '#/components/schemas/StatementStatusEnum'
+        version:
+          type: integer
+        supersedes_id:
+          type: string
+          format: uuid
+          nullable: true
+        restatement_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        line_items:
+          type: array
+          items:
+            $ref: '#/components/schemas/LineItem'
+        facts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Fact'
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/Issue'
+      required:
+      - created_at
+      - currency
+      - entity_id
+      - facts
+      - id
+      - issues
+      - line_items
+      - period_end
+      - period_start
+      - period_type
+      - reported_scale
+      - restatement_reason
+      - statement_type
+      - status
+      - supersedes_id
+      - updated_at
+      - version
+    UnitEnum:
+      enum:
+      - ratio
+      type: string
+      description: '* `ratio` - ratio'
+    Workspace:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        kind:
+          $ref: '#/components/schemas/WorkspaceKindEnum'
+        organization_id:
+          type: string
+          format: uuid
+          nullable: true
+        my_role:
+          $ref: '#/components/schemas/WorkspaceRoleEnum'
+        created_at:
+          type: string
+          format: date-time
+      required:
+      - created_at
+      - id
+      - kind
+      - my_role
+      - name
+      - organization_id
+    WorkspaceCreateRequest:
+      type: object
+      properties:
+        organization_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - name
+      - organization_id
+    WorkspaceKindEnum:
+      enum:
+      - personal
+      - organization
+      type: string
+      description: |-
+        * `personal` - personal
+        * `organization` - organization
+    WorkspaceMember:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        role:
+          $ref: '#/components/schemas/WorkspaceRoleEnum'
+        joined_at:
+          type: string
+          format: date-time
+      required:
+      - email
+      - joined_at
+      - role
+      - user_id
+    WorkspaceMemberAddRequest:
+      type: object
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        role:
+          $ref: '#/components/schemas/WorkspaceRoleEnum'
+      required:
+      - role
+      - user_id
+    WorkspaceMemberRoleRequest:
+      type: object
+      properties:
+        role:
+          $ref: '#/components/schemas/WorkspaceRoleEnum'
+      required:
+      - role
+    WorkspaceRenameRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+      required:
+      - name
+    WorkspaceRoleEnum:
+      enum:
+      - viewer
+      - editor
+      - owner
+      type: string
+      description: |-
+        * `viewer` - Viewer
+        * `editor` - Editor
+        * `owner` - Owner
+    ErrorEnvelope:
+      type: object
+      required:
+      - error
+      properties:
+        error:
+          type: object
+          required:
+          - code
+          - message
+          - details
+          - request_id
+          properties:
+            code:
+              type: string
+              description: Stable, machine-readable.
+            message:
+              type: string
+              description: Safe to show to users.
+            details:
+              nullable: true
+              description: Field-level errors for validation_error; null otherwise.
+            request_id:
+              type: string
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: sessionid

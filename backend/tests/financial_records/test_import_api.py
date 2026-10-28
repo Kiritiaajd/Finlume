@@ -199,6 +199,82 @@ def test_a_second_upload_of_the_same_file_is_a_warning(upload):
     assert warning["document_id"] == first["document"]["id"]
 
 
+# --- Reviewing the mapping ----------------------------------------------------------------------
+
+
+@pytest.fixture
+def map_row(api_client, workspace):
+    def patch(statement_id, row_id, code):
+        url = (
+            f"/api/v1/workspaces/{workspace.public_id}"
+            f"/statements/{statement_id}/line-items/{row_id}/"
+        )
+        return api_client.patch(url, {"line_item_code": code}, format="json")
+
+    return patch
+
+
+def test_mapping_a_row_keeps_its_amount_original_text_and_source_line(upload, map_row):
+    draft = upload(b'label,amount\nSales,"(1,250.50)"\n').json()
+    [row] = draft["line_items"]
+    assert row["line_item_code"] is None  # "Sales" is no exact name
+
+    response = map_row(draft["id"], row["id"], "revenue")
+
+    assert response.status_code == 200
+    assert response.json() == {**row, "line_item_code": "revenue"}
+    assert response.json()["raw_value"] == "(1,250.50)"  # the file's own text survives review
+    assert AuditEvent.objects.filter(action="statement.row_mapped").exists()
+
+
+def test_a_row_can_be_unmapped(upload, map_row):
+    draft = upload().json()
+    row = draft["line_items"][0]
+
+    response = map_row(draft["id"], row["id"], "")
+
+    assert (response.status_code, response.json()["line_item_code"]) == (200, None)
+
+
+@pytest.mark.parametrize(
+    ("code", "message"),
+    [("total_assets", "belongs on the balance_sheet"), ("net_income", "already on row 3")],
+)
+def test_mapping_follows_the_row_rules(upload, map_row, code, message):
+    draft = upload().json()
+    row = draft["line_items"][3]  # "Exceptional items", unmapped
+
+    response = map_row(draft["id"], row["id"], code)
+
+    assert response.status_code == 400
+    assert message in response.json()["error"]["details"]["line_item_code"][0]
+
+
+def test_only_a_draft_row_can_be_mapped(upload, map_row, api_client, workspace):
+    draft = upload().json()
+    api_client.post(f"/api/v1/workspaces/{workspace.public_id}/statements/{draft['id']}/validate/")
+
+    response = map_row(draft["id"], draft["line_items"][3]["id"], "operating_expenses")
+
+    assert response.status_code == 409
+
+
+def test_a_row_of_another_statement_is_not_found(upload, map_row):
+    first = upload().json()
+    second = upload(fields={"period_start": "2024-04-01", "period_end": "2025-03-31"}).json()
+
+    response = map_row(first["id"], second["line_items"][0]["id"], "revenue")
+
+    assert response.status_code == 404
+
+
+def test_viewers_cannot_map_rows(upload, api_client, workspace, add_to_workspace, map_row):
+    draft = upload().json()
+    api_client.force_login(add_to_workspace(workspace, WorkspaceRole.VIEWER))
+
+    assert map_row(draft["id"], draft["line_items"][0]["id"], "revenue").status_code == 403
+
+
 # --- Nothing is stored when something is wrong ------------------------------------------------
 
 

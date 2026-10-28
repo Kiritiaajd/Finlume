@@ -7,6 +7,7 @@ from typing import Any
 from django.contrib.auth import authenticate, login, logout
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -34,6 +35,7 @@ class CsrfView(APIView):
 
     permission_classes = (AllowAny,)
 
+    @extend_schema(responses={204: None})
     def get(self, request: Request, version: str) -> Response:
         return Response(status=status.HTTP_204_NO_CONTENT)
 
@@ -49,6 +51,7 @@ class AnonymousWriteView(APIView):
 
 
 class RegisterView(AnonymousWriteView):
+    @extend_schema(request=RegistrationSerializer, responses={201: CurrentUserSerializer})
     def post(self, request: Request, version: str) -> Response:
         serializer = RegistrationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -60,6 +63,7 @@ class RegisterView(AnonymousWriteView):
 class LoginView(AnonymousWriteView):
     throttle_classes = (LoginIPThrottle, LoginEmailThrottle)
 
+    @extend_schema(request=CredentialsSerializer, responses=CurrentUserSerializer)
     def post(self, request: Request, version: str) -> Response:
         serializer = CredentialsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -82,11 +86,13 @@ class LoginView(AnonymousWriteView):
 
 
 class LogoutView(APIView):
+    @extend_schema(request=None, responses={204: None})
     def post(self, request: Request, version: str) -> Response:
         logout(request._request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class MeView(APIView):
+    @extend_schema(responses=CurrentUserSerializer)
     def get(self, request: Request, version: str) -> Response:
         return Response(_current_user(request.user))

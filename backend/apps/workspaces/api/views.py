@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.pagination import paginated_response
+from api.schema import paginated
 from api.users import request_user
 from apps.workspaces.models import WorkspaceMembership, WorkspaceRole
 from services.workspaces import (
@@ -25,7 +27,9 @@ from .serializers import (
     MemberAddSerializer,
     MemberRoleSerializer,
     WorkspaceCreateSerializer,
+    WorkspaceMemberSerializer,
     WorkspaceRenameSerializer,
+    WorkspaceSerializer,
     member_data,
     workspace_data,
 )
@@ -34,6 +38,7 @@ from .serializers import (
 class WorkspaceListView(APIView):
     """The caller's workspaces with their role in each; create an organization workspace."""
 
+    @extend_schema(responses=paginated(WorkspaceSerializer, "Workspace"))
     def get(self, request: Request, version: str) -> Response:
         # The caller's memberships carry their role; one query (plus the count).
         memberships = (
@@ -45,6 +50,7 @@ class WorkspaceListView(APIView):
             request, self, memberships, lambda m: workspace_data(m.workspace, m.role)
         )
 
+    @extend_schema(request=WorkspaceCreateSerializer, responses={201: WorkspaceSerializer})
     def post(self, request: Request, version: str) -> Response:
         serializer = WorkspaceCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -57,9 +63,11 @@ class WorkspaceListView(APIView):
 class WorkspaceDetailView(WorkspaceScopedView):
     write_role = WorkspaceRole.OWNER
 
+    @extend_schema(responses=WorkspaceSerializer)
     def get(self, request: Request, version: str, workspace_id: UUID) -> Response:
         return Response(workspace_data(self.workspace, self.membership.role))
 
+    @extend_schema(request=WorkspaceRenameSerializer, responses=WorkspaceSerializer)
     def patch(self, request: Request, version: str, workspace_id: UUID) -> Response:
         serializer = WorkspaceRenameSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -72,12 +80,14 @@ class WorkspaceDetailView(WorkspaceScopedView):
 class MemberListView(WorkspaceScopedView):
     write_role = WorkspaceRole.OWNER
 
+    @extend_schema(responses=paginated(WorkspaceMemberSerializer, "WorkspaceMember"))
     def get(self, request: Request, version: str, workspace_id: UUID) -> Response:
         members = self.scoped(WorkspaceMembership.objects.select_related("user")).order_by(
             "created_at", "pk"
         )
         return paginated_response(request, self, members, member_data)
 
+    @extend_schema(request=MemberAddSerializer, responses={201: WorkspaceMemberSerializer})
     def post(self, request: Request, version: str, workspace_id: UUID) -> Response:
         serializer = MemberAddSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -93,6 +103,7 @@ class MemberDetailView(WorkspaceScopedView):
         # removing someone else is checked by the use case.
         return WorkspaceRole.OWNER if method == "PATCH" else WorkspaceRole.VIEWER
 
+    @extend_schema(request=MemberRoleSerializer, responses=WorkspaceMemberSerializer)
     def patch(self, request: Request, version: str, workspace_id: UUID, user_id: UUID) -> Response:
         serializer = MemberRoleSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -104,6 +115,7 @@ class MemberDetailView(WorkspaceScopedView):
         )
         return Response(member_data(membership))
 
+    @extend_schema(responses={204: None})
     def delete(self, request: Request, version: str, workspace_id: UUID, user_id: UUID) -> Response:
         remove_member(
             actor=request_user(request),

@@ -78,7 +78,7 @@ There is no sign-in, and neither client simulates one.
 
 | App | Command | Covers |
 |---|---|---|
-| Web | `npm run check` | `tsc -b`, ESLint, Vitest (API client states, decimal formatting, sample-data consistency, routing, empty, error and unavailable states, settings form), production build |
+| Web | `npm run check` | API types up to date with the schema, `tsc -b`, ESLint, Vitest (API client states, decimal formatting, sample-data consistency, routing, empty, error and unavailable states, settings form), production build |
 | Mobile | `npm run typecheck`, `npm run doctor`, `npm run bundle:check` | TypeScript, Expo dependency checks, Metro bundling for Android |
 
 CI runs the web check and the mobile typecheck and doctor in `.github/workflows/ci.yml`.
@@ -93,7 +93,7 @@ CI runs the web check and the mobile typecheck and doctor in `.github/workflows/
 ## Current limitations
 
 - No authentication, workspaces or data screens. They follow the backend APIs in the [MVP plan](MVP_IMPLEMENTATION_PLAN.md) (steps 1–5, then step 7 for the full dashboard).
-- No generated API types yet: the OpenAPI schema is MVP step 6. The health client is hand-written and validated with Zod.
+- API types are generated from the committed OpenAPI schema (`docs/api/openapi-v1.yaml`) into `src/api/generated/` with `npm run api:types` (`@hey-api/openapi-ts`, types only). `npm run api:types:check`, the first step of `npm run check`, fails when they are out of date. The health client is still hand-written and validated with Zod; step 7 moves the screens onto the generated types.
 - No end-to-end (Playwright) or automated accessibility (axe) tests yet. Both are planned with step 7.
 - The mobile app has no component tests and inherits upstream `npm audit` advisories in Expo's CLI tooling (see its README).
 - The production build is not yet served by any deployment configuration (MVP step 8).

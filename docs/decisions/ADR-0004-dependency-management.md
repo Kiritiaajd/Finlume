@@ -23,6 +23,14 @@ Installs must be reproducible across Windows development machines and Linux CI, 
 - CI job **"Lock files match pyproject.toml"** recompiles both locks over copies of themselves, so existing pins are kept as preferences, and fails on any difference.
 - `djangorestframework-stubs` stays on **3.16.x** while the runtime is DRF 3.18. The 3.18 stubs require django-stubs 6.x (Django 6), which conflicts with Django 5.2 LTS. Stubs affect type checking only.
 
+### Dependencies added since (MVP step 6, 2026-10-28)
+
+| Dependency | Where | Why | Notes |
+|---|---|---|---|
+| `drf-spectacular` `>=0.30,<0.31` | backend runtime | Generates the OpenAPI 3 schema of the v1 API (`docs/api/openapi-v1.yaml`, `/api/v1/schema/`) | Brings `jsonschema`, `PyYAML`, `uritemplate`, `inflection` and their dependencies, all hashed in both locks. The tests also use `jsonschema` and `PyYAML` to check responses against the contract |
+| `@hey-api/openapi-ts` `0.99.0` (exact) | `apps/web` dev | Generates TypeScript types from the committed schema (types only, no runtime code) | Chosen over `openapi-typescript`, whose every release requires TypeScript 5 while the web client uses TypeScript 6. Pre-1.0, so pinned exactly and upgraded deliberately |
+| npm `overrides`: `js-yaml` `4.3.2` under `@hey-api/json-schema-ref-parser` | `apps/web` | The parser pins `js-yaml` 4.2.0, which has high-severity advisories (quadratic CPU on crafted YAML) fixed in 4.3.2, the same major version | Keeps `npm audit --audit-level=high` passing without weakening the gate. Remove the override once the parser depends on 4.3.2 or later |
+
 ## Consequences
 
 ### Positive

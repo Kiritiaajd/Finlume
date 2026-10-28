@@ -19,9 +19,11 @@ from collections.abc import Mapping
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from apps.documents.models import SourceDocument
+from api.schema import AllFieldsOptional
+from apps.documents.models import SourceDocument, SourceDocumentKind
 from apps.financial_records.models import (
     LINE_ITEMS,
     PERIOD_TYPES,
@@ -31,11 +33,13 @@ from apps.financial_records.models import (
     FinancialFact,
     FinancialStatement,
     ReportingEntity,
+    ReviewStatus,
     StatementLineItem,
+    StatementStatus,
 )
 from domain.financial_statements import LineItem, Scale
 from domain.financial_statements.line_items import NON_NEGATIVE_ITEMS, NON_POSITIVE_ITEMS
-from domain.validation import Issue
+from domain.validation import Issue, IssueCode, Severity
 from services.statement_analysis.rows import RowInput, amount_problem, row_problems
 
 MAX_ROWS = 500
@@ -43,6 +47,14 @@ MAX_ROWS = 500
 _CURRENCY = r"^[A-Z]{3}$"
 
 
+@extend_schema_field(
+    {
+        "type": "string",
+        "description": 'A decimal string such as "1250.50" or "-3.25"; never a JSON number. '
+        "At most 6 decimal places and below 10^24.",
+        "example": "1250.50",
+    }
+)
 class AmountField(serializers.Field[Decimal, str, str, Any]):
     """A figure sent as a decimal string, e.g. ``"1250.50"`` or ``"-3.25"``."""
 
@@ -161,12 +173,22 @@ class StatementInputSerializer(_StatementHeaderSerializer):
         return attrs
 
 
+class StatementUpdateSerializer(AllFieldsOptional, StatementInputSerializer):
+    """Edit a draft (PATCH): send only what changes; ``context["statement"]`` fills the rest."""
+
+
 def _row_errors(
     rows: list[RowInput], statement_type: str, scale: Scale
 ) -> dict[str, dict[str, list[str]]]:
     """The shared row rules, keyed by row index like DRF's own list errors."""
     problems = row_problems(rows, statement_type=statement_type, scale=scale)
     return {str(index): fields for index, fields in problems.items()}
+
+
+class RowMappingSerializer(serializers.Serializer[Any]):
+    """Map one draft row to a code, or unmap it with a blank code."""
+
+    line_item_code = serializers.ChoiceField(choices=LINE_ITEMS, allow_blank=True)
 
 
 class RestatementInputSerializer(serializers.Serializer[Any]):
@@ -274,6 +296,97 @@ def issue_data(issue: Issue) -> dict[str, Any]:
         "message": issue.message,
         "line_items": [item.value for item in issue.line_items],
     }
+
+
+class EntitySerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    name = serializers.CharField()
+    entity_type = serializers.ChoiceField(choices=EntityType.choices)
+    default_currency = serializers.CharField(allow_null=True)
+    fiscal_year_end_month = serializers.IntegerField(allow_null=True)
+    created_at = serializers.DateTimeField()
+
+
+class StatementSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    entity_id = serializers.UUIDField()
+    statement_type = serializers.ChoiceField(choices=STATEMENT_TYPES)
+    period_start = serializers.DateField()
+    period_end = serializers.DateField()
+    period_type = serializers.ChoiceField(choices=PERIOD_TYPES)
+    currency = serializers.CharField()
+    reported_scale = serializers.ChoiceField(choices=SCALES)
+    status = serializers.ChoiceField(choices=StatementStatus.choices)
+    version = serializers.IntegerField()
+    supersedes_id = serializers.UUIDField(allow_null=True)
+    restatement_reason = serializers.CharField(allow_null=True)
+    created_at = serializers.DateTimeField()
+    updated_at = serializers.DateTimeField()
+
+
+class LineItemSerializer(serializers.Serializer[Any]):
+    """A raw row as entered; ``amount`` is in the reported scale, as a decimal string."""
+
+    id = serializers.UUIDField()
+    row_number = serializers.IntegerField()
+    label = serializers.CharField()  # type: ignore[assignment]
+    line_item_code = serializers.ChoiceField(choices=LINE_ITEMS, allow_null=True)
+    amount = serializers.CharField(allow_null=True)
+    raw_value = serializers.CharField(allow_blank=True)
+    source_reference = serializers.CharField(allow_null=True)
+
+
+class FactSerializer(serializers.Serializer[Any]):
+    """A normalised figure in base units, as a decimal string, traced to its row."""
+
+    line_item = serializers.ChoiceField(choices=LINE_ITEMS)
+    value = serializers.CharField()
+    row_id = serializers.UUIDField()
+    review_status = serializers.ChoiceField(choices=ReviewStatus.choices)
+
+
+class IssueSerializer(serializers.Serializer[Any]):
+    code = serializers.ChoiceField(choices=[code.value for code in IssueCode])
+    severity = serializers.ChoiceField(choices=[severity.value for severity in Severity])
+    message = serializers.CharField()
+    line_items = serializers.ListField(child=serializers.ChoiceField(choices=LINE_ITEMS))
+
+
+class StatementDetailSerializer(StatementSerializer):
+    line_items = LineItemSerializer(many=True)
+    facts = FactSerializer(many=True)  # empty for a draft
+
+
+class StatementValidationSerializer(StatementDetailSerializer):
+    issues = IssueSerializer(many=True)  # warnings; they never block validation
+
+
+class DocumentSerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    kind = serializers.ChoiceField(choices=SourceDocumentKind.choices)
+    filename = serializers.CharField(allow_null=True)
+    size_bytes = serializers.IntegerField(allow_null=True)
+    sha256 = serializers.CharField(allow_null=True)
+    created_at = serializers.DateTimeField()
+
+
+class ImportWarningSerializer(serializers.Serializer[Any]):
+    code = serializers.ChoiceField(choices=["duplicate_file"])
+    message = serializers.CharField()
+    document_id = serializers.UUIDField()
+
+
+class StatementImportResultSerializer(StatementDetailSerializer):
+    document = DocumentSerializer()
+    warnings = ImportWarningSerializer(many=True)
+
+
+class LineItemDefinitionSerializer(serializers.Serializer[Any]):
+    code = serializers.ChoiceField(choices=LINE_ITEMS)
+    statement_type = serializers.ChoiceField(choices=STATEMENT_TYPES)
+    label = serializers.CharField()  # type: ignore[assignment]
+    definition = serializers.CharField()
+    sign = serializers.ChoiceField(choices=["non_negative", "non_positive", "signed"])
 
 
 def taxonomy_data(item: LineItem) -> dict[str, Any]:

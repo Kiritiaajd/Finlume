@@ -15,6 +15,7 @@ dependencies = [
     "Django>=5.2,<5.3",               # 5.2 LTS: security support until April 2028
     "djangorestframework>=3.18.2,<3.19",  # 3.18.2 fixes request-parsing CVEs
     "psycopg[binary]>=3.2,<4",        # PostgreSQL driver (psycopg 3)
+    "drf-spectacular>=0.30,<0.31",    # OpenAPI 3 schema for the v1 API (MVP step 6)
 ]
 
 [project.optional-dependencies]
@@ -116,3 +117,4 @@ omit = ["*/migrations/*", "config/asgi.py", "config/wsgi.py"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
+fail_under = 85  # FOUNDATION_AUDIT FA-23; enforced since MVP step 6

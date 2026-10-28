@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     # Finlume modules
     "apps.core",
     "apps.accounts",
@@ -275,6 +276,46 @@ REST_FRAMEWORK: dict[str, Any] = {
     "EXCEPTION_HANDLER": "api.exceptions.api_exception_handler",
     # Monetary values travel as strings so no client parses them as floats.
     "COERCE_DECIMAL_TO_STRING": True,
+    "DEFAULT_SCHEMA_CLASS": "api.openapi.FinlumeAutoSchema",
+}
+
+# OpenAPI schema (MVP step 6). The committed contract is docs/api/openapi-v1.yaml;
+# a test fails when the generated schema differs from it.
+SPECTACULAR_SETTINGS: dict[str, Any] = {
+    "TITLE": "Finlume API",
+    "DESCRIPTION": (
+        "Version 1 of the Finlume API. Conventions (errors, pagination, decimals as "
+        "strings, idempotency) are described in docs/api/API_CONVENTIONS.md."
+    ),
+    "VERSION": "1",
+    # drf-spectacular's own default is AllowAny. The schema is for signed-in
+    # users only, like every other endpoint; api.schema.SchemaView also takes
+    # its classes from DRF's defaults, so it can never be looser than them.
+    "SERVE_PERMISSIONS": ["rest_framework.permissions.IsAuthenticated"],
+    "SERVE_INCLUDE_SCHEMA": False,
+    # Separate request and response components, so generated client types
+    # know which fields a client sends and which it only reads.
+    "COMPONENT_SPLIT_REQUEST": True,
+    # Not every PATCH is partial: a rename or a role change requires its field.
+    # Partial updates declare an update serializer with optional fields instead.
+    "COMPONENT_SPLIT_PATCH": False,
+    "ENUM_ADD_EXPLICIT_BLANK_NULL_CHOICE": False,
+    # One name per choice set, taken from its single source of truth. Generated
+    # client types are named after these.
+    "ENUM_NAME_OVERRIDES": {
+        "OrganizationRoleEnum": "apps.organizations.models.OrganizationRole",
+        "WorkspaceRoleEnum": "apps.workspaces.models.WorkspaceRole",
+        "StatementStatusEnum": "apps.financial_records.models.StatementStatus",
+        "LineItemCodeEnum": "apps.financial_records.models.LINE_ITEMS",
+        "MetricCodeEnum": "apps.analysis.models.METRIC_CODES",
+        "IssueCodeEnum": "apps.analysis.models.ISSUE_CODES",
+        "HealthStatusEnum": ["ok", "unavailable"],
+        "ImportWarningCodeEnum": ["duplicate_file"],
+    },
+    "POSTPROCESSING_HOOKS": [
+        "drf_spectacular.hooks.postprocess_schema_enums",
+        "api.schema.add_error_responses",
+    ],
 }
 
 # ---------------------------------------------------------------------------

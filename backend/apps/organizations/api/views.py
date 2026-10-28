@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 from uuid import UUID
 
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.permissions import SAFE_METHODS
 from rest_framework.request import Request
@@ -13,6 +14,7 @@ from rest_framework.throttling import BaseThrottle
 from rest_framework.views import APIView
 
 from api.pagination import paginated_response
+from api.schema import paginated
 from api.users import request_user
 from apps.organizations.models import Organization, OrganizationMembership, OrganizationRole
 from services.access import require_organization_role
@@ -27,7 +29,9 @@ from services.organizations import (
 from .serializers import (
     MemberAddSerializer,
     MemberRoleSerializer,
+    OrganizationMemberSerializer,
     OrganizationNameSerializer,
+    OrganizationSerializer,
     member_data,
     organization_data,
 )
@@ -37,6 +41,7 @@ from .throttles import MemberAddThrottle
 class OrganizationListView(APIView):
     """The caller's organizations with their role in each; create an organization."""
 
+    @extend_schema(responses=paginated(OrganizationSerializer, "Organization"))
     def get(self, request: Request, version: str) -> Response:
         memberships = (
             OrganizationMembership.objects.filter(user=request_user(request))
@@ -47,6 +52,7 @@ class OrganizationListView(APIView):
             request, self, memberships, lambda m: organization_data(m.organization, m.role)
         )
 
+    @extend_schema(request=OrganizationNameSerializer, responses={201: OrganizationSerializer})
     def post(self, request: Request, version: str) -> Response:
         serializer = OrganizationNameSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -84,9 +90,11 @@ class OrganizationScopedView(APIView):
 
 
 class OrganizationDetailView(OrganizationScopedView):
+    @extend_schema(responses=OrganizationSerializer)
     def get(self, request: Request, version: str, organization_id: UUID) -> Response:
         return Response(organization_data(self.organization, self.membership.role))
 
+    @extend_schema(request=OrganizationNameSerializer, responses=OrganizationSerializer)
     def patch(self, request: Request, version: str, organization_id: UUID) -> Response:
         serializer = OrganizationNameSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -105,6 +113,7 @@ class MemberListView(OrganizationScopedView):
             throttles.append(MemberAddThrottle())
         return throttles
 
+    @extend_schema(responses=paginated(OrganizationMemberSerializer, "OrganizationMember"))
     def get(self, request: Request, version: str, organization_id: UUID) -> Response:
         members = (
             OrganizationMembership.objects.filter(organization=self.organization)
@@ -113,6 +122,7 @@ class MemberListView(OrganizationScopedView):
         )
         return paginated_response(request, self, members, member_data)
 
+    @extend_schema(request=MemberAddSerializer, responses={201: OrganizationMemberSerializer})
     def post(self, request: Request, version: str, organization_id: UUID) -> Response:
         serializer = MemberAddSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -130,6 +140,7 @@ class MemberDetailView(OrganizationScopedView):
         # removing someone else is checked by the use case.
         return OrganizationRole.ADMIN if method == "PATCH" else OrganizationRole.MEMBER
 
+    @extend_schema(request=MemberRoleSerializer, responses=OrganizationMemberSerializer)
     def patch(
         self, request: Request, version: str, organization_id: UUID, user_id: UUID
     ) -> Response:
@@ -143,6 +154,7 @@ class MemberDetailView(OrganizationScopedView):
         )
         return Response(member_data(membership))
 
+    @extend_schema(responses={204: None})
     def delete(
         self, request: Request, version: str, organization_id: UUID, user_id: UUID
     ) -> Response:

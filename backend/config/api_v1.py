@@ -6,7 +6,10 @@ them so the full v1 surface is visible in one place.
 
 from django.urls import include, path
 
+from api.schema import SchemaView
+
 urlpatterns = [
+    path("schema/", SchemaView.as_view(), name="schema"),
     path("", include("apps.core.urls")),
     path("", include("apps.accounts.api.urls")),
     path("", include("apps.organizations.api.urls")),

@@ -6,12 +6,14 @@ from uuid import UUID
 
 from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from api.idempotency import idempotency_key
+from api.idempotency import IDEMPOTENCY_KEY, idempotency_key
 from api.pagination import paginated_response
+from api.schema import paginated
 from api.users import request_user
 from apps.analysis.models import AnalysisRun, AnalysisRunInputFact, with_superseded_flag
 from apps.financial_records.models import ReportingEntity
@@ -19,17 +21,29 @@ from apps.workspaces.api.scoping import WorkspaceScopedView
 from domain.financial_statements import PeriodType, ReportingPeriod
 from services.statement_analysis import run_analysis
 
-from .serializers import AnalysisRequestSerializer, run_detail, run_summary
+from .serializers import (
+    AnalysisRequestSerializer,
+    RunDetailSerializer,
+    RunSummarySerializer,
+    run_detail,
+    run_summary,
+)
 
 
 class EntityAnalysisListView(WorkspaceScopedView):
     """An entity's runs, latest first; run a new analysis for a period."""
 
+    @extend_schema(responses=paginated(RunSummarySerializer, "AnalysisRun"))
     def get(self, request: Request, version: str, workspace_id: UUID, entity_id: UUID) -> Response:
         entity = get_object_or_404(self.scoped(ReportingEntity.objects.all()), public_id=entity_id)
         runs = _runs(self).filter(entity=entity).order_by("-created_at", "-pk")
         return paginated_response(request, self, runs, run_summary)
 
+    @extend_schema(
+        request=AnalysisRequestSerializer,
+        responses={201: RunDetailSerializer},
+        parameters=[IDEMPOTENCY_KEY],
+    )
     def post(self, request: Request, version: str, workspace_id: UUID, entity_id: UUID) -> Response:
         entity = get_object_or_404(self.scoped(ReportingEntity.objects.all()), public_id=entity_id)
         serializer = AnalysisRequestSerializer(data=request.data)
@@ -48,6 +62,7 @@ class EntityAnalysisListView(WorkspaceScopedView):
 
 
 class AnalysisDetailView(WorkspaceScopedView):
+    @extend_schema(responses=RunDetailSerializer)
     def get(self, request: Request, version: str, workspace_id: UUID, run_id: UUID) -> Response:
         return Response(_detail(self, run_id))
 

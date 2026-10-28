@@ -153,6 +153,13 @@ Delivered as two PRs (decided 2026-10-27):
 
 ## Step 6 — API tests and OpenAPI schema
 
+*Implemented 2026-10-28*, with these decisions:
+
+- The schema is served to **signed-in users only**.
+- It is committed as `docs/api/openapi-v1.yaml`.
+- TypeScript types are generated with **`@hey-api/openapi-ts`**, because `openapi-typescript` requires TypeScript 5 and the web client is on TypeScript 6.
+- The end-to-end test exposed a provenance gap from step 4: reviewing an import's mapping replaced every row and lost the CSV's original cell text. It is fixed by `PATCH statements/{id}/line-items/{row_id}/`, which changes only a row's code.
+
 **Goal:** a stable, documented v1 contract for the web client and, later, mobile (FR-050, FR-052).
 
 - Add `drf-spectacular` (a new dependency; record it in ADR-0004's dependency list), with the schema at `/api/v1/schema/`. In production, serve it only to authenticated users or not at all (decide in the PR).

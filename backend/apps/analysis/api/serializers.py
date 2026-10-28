@@ -6,8 +6,16 @@ from typing import Any
 
 from rest_framework import serializers
 
-from apps.analysis.models import AnalysisIssue, AnalysisRun, AnalysisRunInputFact, MetricResult
-from apps.financial_records.models import PERIOD_TYPES
+from apps.analysis.models import (
+    METRIC_CODES,
+    UNITS,
+    AnalysisIssue,
+    AnalysisRun,
+    AnalysisRunInputFact,
+    MetricResult,
+)
+from apps.financial_records.api.serializers import IssueSerializer
+from apps.financial_records.models import LINE_ITEMS, PERIOD_TYPES
 from domain.calculations import RATIO_DEFINITIONS
 
 _NAMES = {definition.code: definition.name for definition in RATIO_DEFINITIONS}
@@ -24,6 +32,55 @@ class AnalysisRequestSerializer(serializers.Serializer[Any]):
         if attrs["period_start"] > attrs["period_end"]:
             raise serializers.ValidationError({"period_end": ["The period ends before it starts."]})
         return attrs
+
+
+# --- Responses (for the OpenAPI schema; built by the functions below) -----------------
+
+
+class RunSummarySerializer(serializers.Serializer[Any]):
+    id = serializers.UUIDField()
+    entity_id = serializers.UUIDField()
+    period_start = serializers.DateField()
+    period_end = serializers.DateField()
+    period_type = serializers.ChoiceField(choices=PERIOD_TYPES)
+    currency = serializers.CharField()
+    engine_version = serializers.CharField()
+    input_fingerprint = serializers.CharField()
+    uses_superseded_statement = serializers.BooleanField(
+        help_text="True once a statement this run used was restated; the run keeps its figures."
+    )
+    created_at = serializers.DateTimeField()
+
+
+class MetricSerializer(serializers.Serializer[Any]):
+    code = serializers.ChoiceField(choices=METRIC_CODES)
+    name = serializers.CharField()
+    value = serializers.CharField(
+        allow_null=True, help_text="Decimal string; null when not computable, never 0."
+    )
+    unit = serializers.ChoiceField(choices=UNITS)
+    methodology = serializers.CharField()
+    inputs = serializers.DictField(
+        child=serializers.CharField(), help_text="Line-item code to decimal string, base units."
+    )
+    issues = IssueSerializer(many=True)
+
+
+class RunInputSerializer(serializers.Serializer[Any]):
+    """One figure the engine saw, traced to its row, statement version and document."""
+
+    line_item = serializers.ChoiceField(choices=LINE_ITEMS)
+    value = serializers.CharField()
+    row_id = serializers.UUIDField()
+    statement_id = serializers.UUIDField()
+    statement_version = serializers.IntegerField()
+    document_id = serializers.UUIDField()
+
+
+class RunDetailSerializer(RunSummarySerializer):
+    metrics = MetricSerializer(many=True)
+    issues = IssueSerializer(many=True)
+    inputs = RunInputSerializer(many=True)
 
 
 def run_summary(run: AnalysisRun) -> dict[str, Any]:

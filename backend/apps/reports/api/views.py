@@ -7,21 +7,31 @@ from uuid import UUID
 
 from django.db.models import Count, OuterRef, Subquery
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.request import Request
 from rest_framework.response import Response
 
 from api.pagination import paginated_response
+from api.schema import paginated
 from api.users import request_user
 from apps.analysis.models import AnalysisIssue, AnalysisRun, MetricResult, with_superseded_flag
 from apps.reports.models import Report, ReportRun
 from apps.workspaces.api.scoping import WorkspaceScopedView
 from services.statement_analysis import create_report, update_report
 
-from .serializers import ReportInputSerializer, report_detail, report_summary
+from .serializers import (
+    ReportDetailSerializer,
+    ReportInputSerializer,
+    ReportSummarySerializer,
+    ReportUpdateSerializer,
+    report_detail,
+    report_summary,
+)
 
 
 class ReportListView(WorkspaceScopedView):
+    @extend_schema(responses=paginated(ReportSummarySerializer, "Report"))
     def get(self, request: Request, version: str, workspace_id: UUID) -> Response:
         reports = (
             self.scoped(Report.objects.all())
@@ -30,6 +40,7 @@ class ReportListView(WorkspaceScopedView):
         )
         return paginated_response(request, self, reports, report_summary)
 
+    @extend_schema(request=ReportInputSerializer, responses={201: ReportDetailSerializer})
     def post(self, request: Request, version: str, workspace_id: UUID) -> Response:
         serializer = ReportInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -40,14 +51,16 @@ class ReportListView(WorkspaceScopedView):
 
 
 class ReportDetailView(WorkspaceScopedView):
+    @extend_schema(responses=ReportDetailSerializer)
     def get(self, request: Request, version: str, workspace_id: UUID, report_id: UUID) -> Response:
         return Response(_detail(self, report_id))
 
+    @extend_schema(request=ReportUpdateSerializer, responses=ReportDetailSerializer)
     def patch(
         self, request: Request, version: str, workspace_id: UUID, report_id: UUID
     ) -> Response:
         report = get_object_or_404(self.scoped(Report.objects.all()), public_id=report_id)
-        serializer = ReportInputSerializer(data=request.data, partial=True)
+        serializer = ReportUpdateSerializer(data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         update_report(
             actor=request_user(request),

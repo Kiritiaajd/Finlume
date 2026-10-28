@@ -4,7 +4,8 @@ import logging
 
 from django.db import DatabaseError, connection
 from django.http import HttpRequest, JsonResponse
-from rest_framework import status
+from drf_spectacular.utils import extend_schema, inline_serializer
+from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -13,6 +14,15 @@ from rest_framework.views import APIView
 from api.exceptions import error_body
 
 logger = logging.getLogger(__name__)
+
+_STATUS = serializers.ChoiceField(choices=["ok", "unavailable"])
+_HEALTH = inline_serializer(
+    name="Health",
+    fields={
+        "status": _STATUS,
+        "checks": inline_serializer(name="HealthChecks", fields={"database": _STATUS}),
+    },
+)
 
 
 class HealthView(APIView):
@@ -26,6 +36,7 @@ class HealthView(APIView):
     permission_classes = (AllowAny,)
     throttle_classes = ()
 
+    @extend_schema(responses={200: _HEALTH, 503: _HEALTH})
     def get(self, request: Request, version: str) -> Response:
         database_ok = _database_is_reachable()
         body = {

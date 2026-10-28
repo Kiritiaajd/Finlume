@@ -11,7 +11,9 @@ from uuid import UUID
 
 from django.conf import settings
 from django.core.files.uploadhandler import MemoryFileUploadHandler
+from django.http import Http404
 from django.shortcuts import get_object_or_404
+from drf_spectacular.utils import extend_schema
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser
 from rest_framework.request import Request
@@ -19,8 +21,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from api.exceptions import PayloadTooLarge
-from api.idempotency import idempotency_key
+from api.idempotency import IDEMPOTENCY_KEY, idempotency_key
 from api.pagination import paginated_response
+from api.schema import paginated
 from api.users import request_user
 from apps.financial_records.models import FinancialStatement, ReportingEntity, StatementStatus
 from apps.workspaces.api.scoping import WorkspaceScopedView
@@ -29,6 +32,7 @@ from services.statement_analysis import (
     create_entity,
     create_statement,
     import_statement_csv,
+    map_row,
     restate_statement,
     update_draft,
     validate_statement,
@@ -36,9 +40,18 @@ from services.statement_analysis import (
 
 from .serializers import (
     EntityInputSerializer,
+    EntitySerializer,
+    LineItemDefinitionSerializer,
+    LineItemSerializer,
     RestatementInputSerializer,
+    RowMappingSerializer,
+    StatementDetailSerializer,
+    StatementImportResultSerializer,
     StatementImportSerializer,
     StatementInputSerializer,
+    StatementSerializer,
+    StatementUpdateSerializer,
+    StatementValidationSerializer,
     document_data,
     entity_data,
     fact_data,
@@ -50,10 +63,12 @@ from .serializers import (
 
 
 class EntityListView(WorkspaceScopedView):
+    @extend_schema(responses=paginated(EntitySerializer, "Entity"))
     def get(self, request: Request, version: str, workspace_id: UUID) -> Response:
         entities = self.scoped(ReportingEntity.objects.all()).order_by("name", "pk")
         return paginated_response(request, self, entities, entity_data)
 
+    @extend_schema(request=EntityInputSerializer, responses={201: EntitySerializer})
     def post(self, request: Request, version: str, workspace_id: UUID) -> Response:
         serializer = EntityInputSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -64,6 +79,7 @@ class EntityListView(WorkspaceScopedView):
 
 
 class EntityDetailView(WorkspaceScopedView):
+    @extend_schema(responses=EntitySerializer)
     def get(self, request: Request, version: str, workspace_id: UUID, entity_id: UUID) -> Response:
         entity = get_object_or_404(self.scoped(ReportingEntity.objects.all()), public_id=entity_id)
         return Response(entity_data(entity))
@@ -72,6 +88,7 @@ class EntityDetailView(WorkspaceScopedView):
 class EntityStatementListView(WorkspaceScopedView):
     """Every version of every statement of one entity; create a draft."""
 
+    @extend_schema(responses=paginated(StatementSerializer, "Statement"))
     def get(self, request: Request, version: str, workspace_id: UUID, entity_id: UUID) -> Response:
         entity = get_object_or_404(self.scoped(ReportingEntity.objects.all()), public_id=entity_id)
         statements = (
@@ -82,6 +99,7 @@ class EntityStatementListView(WorkspaceScopedView):
         )
         return paginated_response(request, self, statements, statement_data)
 
+    @extend_schema(request=StatementInputSerializer, responses={201: StatementDetailSerializer})
     def post(self, request: Request, version: str, workspace_id: UUID, entity_id: UUID) -> Response:
         entity = get_object_or_404(self.scoped(ReportingEntity.objects.all()), public_id=entity_id)
         serializer = StatementInputSerializer(data=request.data)
@@ -132,6 +150,11 @@ class EntityImportView(WorkspaceScopedView):
         request._request.upload_handlers = [_InMemoryUploadHandler(request._request)]
         super().initial(request, *args, **kwargs)
 
+    @extend_schema(
+        request={"multipart/form-data": StatementImportSerializer},
+        responses={201: StatementImportResultSerializer},
+        parameters=[IDEMPOTENCY_KEY],
+    )
     def post(self, request: Request, version: str, workspace_id: UUID, entity_id: UUID) -> Response:
         entity = get_object_or_404(self.scoped(ReportingEntity.objects.all()), public_id=entity_id)
         serializer = StatementImportSerializer(data=request.data)
@@ -174,16 +197,18 @@ def _too_large() -> PayloadTooLarge:
 class StatementDetailView(WorkspaceScopedView):
     """One statement version with its raw rows (and facts, once validated); edit a draft."""
 
+    @extend_schema(responses=StatementDetailSerializer)
     def get(
         self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
     ) -> Response:
         return Response(_statement_with_rows(_statement(self, statement_id)))
 
+    @extend_schema(request=StatementUpdateSerializer, responses=StatementDetailSerializer)
     def patch(
         self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
     ) -> Response:
         statement = _statement(self, statement_id)
-        serializer = StatementInputSerializer(
+        serializer = StatementUpdateSerializer(
             data=request.data, partial=True, context={"statement": statement}
         )
         serializer.is_valid(raise_exception=True)
@@ -198,9 +223,37 @@ class StatementDetailView(WorkspaceScopedView):
         return Response(_statement_with_rows(_statement(self, updated.public_id)))
 
 
+class StatementLineItemView(WorkspaceScopedView):
+    """Review one draft row's mapping; its amount and original text never change."""
+
+    @extend_schema(request=RowMappingSerializer, responses=LineItemSerializer)
+    def patch(
+        self,
+        request: Request,
+        version: str,
+        workspace_id: UUID,
+        statement_id: UUID,
+        row_id: UUID,
+    ) -> Response:
+        statement = _statement(self, statement_id)
+        if not statement.line_items.filter(public_id=row_id).exists():
+            raise Http404
+        serializer = RowMappingSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        row = map_row(
+            actor=request_user(request),
+            workspace=self.workspace,
+            statement=statement,
+            row_id=row_id,
+            **serializer.validated_data,
+        )
+        return Response(line_item_data(row))
+
+
 class StatementValidateView(WorkspaceScopedView):
     """Draft → validated: saves the facts and returns consistency warnings, never blocking."""
 
+    @extend_schema(request=None, responses=StatementValidationSerializer)
     def post(
         self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
     ) -> Response:
@@ -216,6 +269,7 @@ class StatementValidateView(WorkspaceScopedView):
 class StatementRestatementView(WorkspaceScopedView):
     """Start the next version of a validated statement, as a draft."""
 
+    @extend_schema(request=RestatementInputSerializer, responses={201: StatementDetailSerializer})
     def post(
         self, request: Request, version: str, workspace_id: UUID, statement_id: UUID
     ) -> Response:
@@ -241,6 +295,7 @@ class LineItemTaxonomyView(APIView):
     Reference data, the same for everyone, so it is one complete page.
     """
 
+    @extend_schema(responses=paginated(LineItemDefinitionSerializer, "LineItemDefinition"))
     def get(self, request: Request, version: str) -> Response:
         items = [taxonomy_data(item) for item in LineItem]
         return Response({"count": len(items), "next": None, "previous": None, "results": items})

@@ -194,7 +194,7 @@ Everything below ran on 2026-10-25 on the machine described above, unless marked
 | FA-20 | `User.email` has no database-level non-blank check, and login uses `username` | Decide whether to sign in by email. If yes, add a `CHECK (email <> '')` and an email-based backend in step 1 | Needs approval |
 | FA-21 | `PrivateFileSystemStorage.url()` raises by design, so Django admin's default `FileField` widget would crash on documents | `SourceDocument` has no `FileField`: a stored file is only a random `storage_key`, so the read-only admin never asks for a URL (step 4, tested) | **Fixed** |
 | FA-22 | Test settings pointed management commands at the development SQLite file | `config/settings/test.py` now uses `var/test.sqlite3`; pytest still uses an in-memory database | **Fixed** |
-| FA-23 | No coverage threshold (`--cov-fail-under`) in CI or the scripts | Add `fail_under = 85` to `[tool.coverage.report]` once CI is green | Planned |
+| FA-23 | No coverage threshold (`--cov-fail-under`) in CI or the scripts | `fail_under = 85` in `[tool.coverage.report]`, so CI's `pytest --cov` fails below it (coverage was 96.8% when enforced) | **Fixed** (step 6) |
 | FA-24 | Unhandled database errors are logged with their messages, which can contain user data (for example an `IntegrityError` showing an email) | Log scrubbing policy, and map known integrity errors to `409` in the application layer (step 8) | Planned |
 | FA-25 | `load_env_file` also runs under production settings (it never overrides real environment variables) | Accept; documented in LOCAL_SETUP | Accepted |
 | FA-26 | The planned app `organizations` would hold `Workspace` and `Membership` | Name it `workspaces`, keeping `organizations` for the future `Organization` grouping | Needs approval (naming) |

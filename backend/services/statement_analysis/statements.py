@@ -18,8 +18,10 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
+from uuid import UUID
 
 from django.db import IntegrityError, transaction
+from django.http import Http404
 from django.utils import timezone
 
 from apps.accounts.models import User
@@ -42,7 +44,7 @@ from domain.financial_statements import (
     ReportingPeriod,
 )
 from domain.validation import Issue, validate_fact_set
-from services.errors import ConflictError
+from services.errors import ConflictError, InvalidInput
 
 from .normalisation import build_facts
 from .rows import RowInput
@@ -310,6 +312,57 @@ def restate_statement(
         restates=str(current.public_id),
     )
     return draft
+
+
+@transaction.atomic
+def map_row(
+    *,
+    actor: User,
+    workspace: Workspace,
+    statement: FinancialStatement,
+    row_id: UUID,
+    line_item_code: str,
+) -> StatementLineItem:
+    """Change the code of one draft row ("" unmaps it). Nothing else about the row changes.
+
+    This is how an imported mapping is reviewed (FR-014): the row's amount, its
+    original text (``raw_value``) and its source line stay exactly as read.
+    """
+    locked = _locked(statement.pk)
+    if locked.status != StatementStatus.DRAFT:
+        raise ConflictError("Only a draft statement can be edited. Restate it instead.")
+    try:
+        row = locked.line_items.get(public_id=row_id)
+    except StatementLineItem.DoesNotExist:
+        raise Http404 from None
+    if line_item_code:
+        home = LineItem(line_item_code).statement_type.value
+        if home != locked.statement_type:
+            raise InvalidInput(
+                {
+                    "line_item_code": [
+                        f"{line_item_code} belongs on the {home}, not the {locked.statement_type}."
+                    ]
+                }
+            )
+        taken = locked.line_items.exclude(pk=row.pk).filter(line_item_code=line_item_code).first()
+        if taken is not None:
+            raise InvalidInput(
+                {"line_item_code": [f"{line_item_code} is already on row {taken.row_number}."]}
+            )
+    previous = row.line_item_code
+    row.line_item_code = line_item_code
+    row.save(update_fields=["line_item_code", "updated_at"])
+    AuditEvent.record(
+        "statement.row_mapped",
+        actor=actor,
+        workspace=workspace,
+        target=locked,
+        row=row.row_number,
+        previous_code=previous,
+        code=line_item_code,
+    )
+    return row
 
 
 def _locked(pk: int) -> FinancialStatement:

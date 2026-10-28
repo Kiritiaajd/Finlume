@@ -13,9 +13,14 @@ from typing import Any
 
 from django.conf import settings
 from django.db import models
-from django.db.models import F, Q
+from django.db.models import Exists, F, OuterRef, Q, QuerySet
 
-from apps.financial_records.models import PERIOD_TYPES, FinancialFact, ReportingEntity
+from apps.financial_records.models import (
+    PERIOD_TYPES,
+    FinancialFact,
+    ReportingEntity,
+    StatementStatus,
+)
 from apps.workspaces.models import Workspace
 from domain.calculations import RATIO_DEFINITIONS, MetricUnit
 from domain.validation import IssueCode, Severity
@@ -95,6 +100,11 @@ class AnalysisRun(_AppendOnly):
                 fields=["workspace", "created_by", "idempotency_key"],
                 condition=Q(idempotency_key__isnull=False),
                 name="analysis_analysisrun_idempotency_unique",
+            ),
+            # Composite foreign key target: a report and its runs share one
+            # workspace (reports migration 0002).
+            models.UniqueConstraint(
+                fields=["workspace", "id"], name="analysis_analysisrun_workspace_key"
             ),
         ]
         indexes = [
@@ -195,3 +205,15 @@ class AnalysisIssue(_AppendOnly):
 
     def __str__(self) -> str:
         return f"{self.code}: {self.message}"
+
+
+def with_superseded_flag(runs: QuerySet[AnalysisRun]) -> QuerySet[AnalysisRun]:
+    """Annotate ``uses_superseded_statement``: a statement the run used was restated since.
+
+    The run stays valid for the figures it used; a new run would differ. One
+    subquery, so it costs no extra round trip.
+    """
+    superseded = AnalysisRunInputFact.objects.filter(
+        run=OuterRef("pk"), fact__statement__status=StatementStatus.SUPERSEDED
+    )
+    return runs.annotate(uses_superseded_statement=Exists(superseded))

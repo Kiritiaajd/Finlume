@@ -140,6 +140,11 @@ version (`ENGINE_VERSION`); every engine version change is listed here.
   - An entity or statement ID from another workspace answers `404`.
   - `GET /api/v1/line-items/`: the taxonomy with each code's statement type, sign convention and definition, as help text for entry forms.
   - Events `entity.created`, `statement.created` and `statement.updated` are audited, without amounts.
+- **Saved reports (MVP step 5b):** step 5 is complete.
+  - `GET/POST workspaces/{ws}/reports/` and `GET/PATCH reports/{id}/`: a title, the user's notes and an ordered list of up to 50 runs. Viewers read; editors write, and `run_ids` replaces the whole list.
+  - A report stores no figures. It is rendered live from its immutable runs, with each run's metrics, issues and `uses_superseded_statement`, so it can never drift from them. A report costs 5 queries however many runs it lists.
+  - New `reports` app: `Report` and `ReportRun` (`RESTRICT` on the run, unique run and position per report), with PostgreSQL composite keys so a report only lists runs of its own workspace. A run ID that is unknown or from another workspace gets the same `400`. Read-only admin; `report.created` and `report.updated` are audited without figures.
+  - `AnalysisRun` gains a `(workspace, id)` key (`analysis.0003`) for those composite keys. The "statement restated since" flag is now one shared query helper, `with_superseded_flag`.
 - **Analyses (MVP step 5a):** run, save and reload immutable analyses (acceptance criteria 6 and 7).
   - `POST workspaces/{ws}/entities/{id}/analyses/` (editor) with a period assembles that period's validated statements (rule A2), runs the engine and saves the run, all seven metrics with their methodology and inputs, every issue and the exact facts used, in one transaction. `GET entities/{id}/analyses/` and `GET analyses/{id}/` read them (viewer).
   - Every run is new and immutable: the model refuses updates and single deletions (`ImmutableRecordError`), and there is no endpoint for either. Running again on unchanged inputs gives the same fingerprint and values. A missing input is `null` with a `missing_input` issue, never zero.

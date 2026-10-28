@@ -115,7 +115,7 @@ Arrows point from a module to what it depends on. Dashed modules do not exist ye
 | `ingestion` | Conditional (Phase 1) | Only tables for import batches and row errors, if needed. The import workflow itself lives in `services/statement_analysis` and `services/documents` (§3.3) | CSV upload, if import batches need persisting |
 | `documents` | **Implemented** | `SourceDocument` metadata: manual entry and CSV uploads, with the file's SHA-256, size and random private storage key | MVP step 2a (files in step 4) |
 | `analysis` | **Implemented** (models, read-only admin and API, step 5a) | `AnalysisRun` (immutable), `MetricResult`, `AnalysisIssue` and the input-fact join | MVP step 5a |
-| `reports` | Planned (Phase 1; a separate app only if reports need their own persistence and endpoints) | `Report`: a saved, titled view over one or more analysis runs | Dashboard and report screens |
+| `reports` | **Implemented** (models, read-only admin and API, step 5b; its own app because reports have their own table and endpoints) | `Report`: a saved, titled view over one or more analysis runs, and `ReportRun` (ordered links) | MVP step 5b |
 | `audit` | **Implemented** | `AuditEvent` (actor, pseudonymous actor label, action, target, request ID; no financial values) and `AuditEvent.record()` | — |
 | `personal_finance` | Future (Phase 4) | Accounts, transactions, categories, budgets | Personal-finance phase |
 | `investments`, `market_data` | Future (Phase 5) | Securities, listings, prices, portfolios, holdings | Investment phase |
@@ -164,7 +164,7 @@ responsibility with a clear boundary, not a separate process.
 | `accounts` | Registration and personal-workspace provisioning | `accounts`, `workspaces`, `audit` | Scaffolded (step 1b) |
 | `organizations` | Organization lifecycle and membership | `organizations`, `workspaces`, `audit` | Implemented (step 1d) |
 | `workspaces` | Workspace lifecycle, roles and ownership recovery | `workspaces`, `audit` | Scaffolded (step 1c) |
-| `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | Started: assembly and normalisation (step 2b), statement entry, validation and restatement (step 3), CSV import (step 4), analysis runs (step 5a); saved reports in step 5b |
+| `statement_analysis` | Statements and their entry, CSV mapping, normalisation, validation, ratio analysis through `domain.calculations`, and saved analyses and reports | `financial_records`, `analysis`, `reports` | Started: assembly and normalisation (step 2b), statement entry, validation and restatement (step 3), CSV import (step 4), analysis runs (step 5a) and saved reports (step 5b) |
 | `documents` | Document intake (private storage, fingerprinting) and, in Phase 2, extraction with human review | `documents` | Implemented: intake (step 4); Phase 2 (extraction) |
 | `stock_research` | Company research, market data, valuation | `investments`, `market_data`, `infrastructure/providers` | Phase 5 |
 | `portfolio_analysis` | Holdings, returns, risk and allocation | `investments` | Phase 5 |

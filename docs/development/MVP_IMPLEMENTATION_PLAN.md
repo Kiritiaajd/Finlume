@@ -133,7 +133,7 @@ Delivered as two PRs:
 Delivered as two PRs (decided 2026-10-27):
 
 - **5a** (*implemented 2026-10-27*): the fingerprint, the `analysis` app, the run workflow and its endpoints. Every POST creates a new immutable run, and inputs that cannot be assembled are a `409` with nothing saved. There is no `status` column until background jobs exist.
-- **5b:** saved reports.
+- **5b** (*implemented 2026-10-28*): saved reports. Step 5 is complete.
 
 - **Domain:** `fingerprint(facts)` as a pure function in the canonical format (FA-11).
 - **App:** `analysis` (`AnalysisRun`, `MetricResult`, `AnalysisIssue`, plus the input-fact join, `RESTRICT`).

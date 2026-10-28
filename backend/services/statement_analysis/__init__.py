@@ -4,6 +4,7 @@ from .analyses import run_analysis
 from .assembly import AnalysisInput, assemble_analysis_input
 from .imports import ImportOutcome, import_statement_csv
 from .normalisation import build_facts
+from .reports import create_report, update_report
 from .rows import RowInput
 from .statements import (
     ValidationOutcome,
@@ -22,10 +23,12 @@ __all__ = [
     "assemble_analysis_input",
     "build_facts",
     "create_entity",
+    "create_report",
     "create_statement",
     "import_statement_csv",
     "restate_statement",
     "run_analysis",
     "update_draft",
+    "update_report",
     "validate_statement",
 ]

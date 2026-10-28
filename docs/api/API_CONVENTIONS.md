@@ -4,7 +4,7 @@ The Finlume web and mobile clients consume the same versioned REST API, served b
 
 > **Implementation status:** the implemented endpoints are health,
 > authentication, organizations, workspaces, entities, statements, CSV
-> imports, analyses and the line-item taxonomy ([below](#implemented-endpoints)). Every other
+> imports, analyses, reports and the line-item taxonomy ([below](#implemented-endpoints)). Every other
 > resource in this document is designed but not yet built. The global behaviours (versioning, error envelope,
 > request IDs, pagination, throttling, authentication defaults) are already
 > configured in `backend/config/settings/base.py`.
@@ -235,6 +235,19 @@ Limits and refusals:
 On any refusal nothing is stored: neither the file nor a row. A row's `source_reference` is its file line (`line 7`).
 
 Response: `201`, the draft (as `GET statements/{id}/`), plus `document` (`{"id", "kind", "filename", "size_bytes", "sha256", "created_at"}`) and `warnings`. Uploading a file already uploaded to the workspace succeeds with a `duplicate_file` warning naming the earlier document. The file is stored privately under a random key and has no URL.
+
+### Reports (MVP step 5b)
+
+Under `workspaces/{ws}/`. Viewers read; editors write.
+
+| Endpoint | Access | Success | Notes |
+|---|---|---|---|
+| `GET reports/` | Viewer | `200`, a page of reports | Latest first: `{"id", "title", "run_count", "created_at", "updated_at"}` |
+| `POST reports/` `{"title", "notes"?, "run_ids"?}` | Editor | `201`, the report | `run_ids` is the ordered list of runs, at most 50, each once |
+| `GET reports/{id}/` | Viewer | `200`, the report | |
+| `PATCH reports/{id}/` `{"title"?, "notes"?, "run_ids"?}` | Editor | `200`, the report | Changes only what is sent; `run_ids` replaces the whole ordered list |
+
+Report: `{"id", "title", "notes", "created_at", "updated_at", "runs"}`. Each run is a run summary (as in analyses) plus its `metrics` (`{"code", "name", "value", "unit"}`) and `issues`, rendered live from the stored run. A report holds no figures of its own. `notes` is the user's text, separate from every calculated value. A run ID that is unknown or belongs to another workspace is a `400` with `details.run_ids`, the same answer for both, so other workspaces' runs are never revealed.
 
 ### Analyses (MVP step 5a)
 

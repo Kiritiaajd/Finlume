@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from django.db.models import Exists, OuterRef, QuerySet
+from django.db.models import QuerySet
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.request import Request
@@ -13,8 +13,8 @@ from rest_framework.response import Response
 from api.idempotency import idempotency_key
 from api.pagination import paginated_response
 from api.users import request_user
-from apps.analysis.models import AnalysisRun, AnalysisRunInputFact
-from apps.financial_records.models import ReportingEntity, StatementStatus
+from apps.analysis.models import AnalysisRun, AnalysisRunInputFact, with_superseded_flag
+from apps.financial_records.models import ReportingEntity
 from apps.workspaces.api.scoping import WorkspaceScopedView
 from domain.financial_statements import PeriodType, ReportingPeriod
 from services.statement_analysis import run_analysis
@@ -53,14 +53,7 @@ class AnalysisDetailView(WorkspaceScopedView):
 
 
 def _runs(view: WorkspaceScopedView) -> QuerySet[AnalysisRun]:
-    superseded = AnalysisRunInputFact.objects.filter(
-        run=OuterRef("pk"), fact__statement__status=StatementStatus.SUPERSEDED
-    )
-    return (
-        view.scoped(AnalysisRun.objects.all())
-        .select_related("entity")
-        .annotate(uses_superseded_statement=Exists(superseded))
-    )
+    return with_superseded_flag(view.scoped(AnalysisRun.objects.all()).select_related("entity"))
 
 
 def _detail(view: WorkspaceScopedView, run_id: UUID) -> dict[str, object]:

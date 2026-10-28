@@ -37,7 +37,7 @@ calculated is in [Financial calculation conventions](FINANCIAL_CALCULATION_CONVE
 | `AnalysisRun` | `analysis` | **Implemented** (step 5a) | One immutable execution of the calculation engine |
 | `MetricResult` | `analysis` | **Implemented** (step 5a) | One metric value produced by a run |
 | `AnalysisIssue` | `analysis` | **Implemented** (step 5a) | A validation or calculation issue produced by a run |
-| `Report` | `reports` | MVP | A saved, titled view of one or more analysis runs |
+| `Report` | `reports` | **Implemented** (step 5b) | A saved, titled view of one or more analysis runs |
 | `AuditEvent` | `audit` | MVP | Who did what, when; contains no financial values |
 | `Team`, `TeamMembership` | `organizations` | Future | Manage workspace memberships for a group ([ADR-0008](../decisions/ADR-0008-organizations-and-workspace-tenancy.md) §5) |
 | `ExtractionCandidate` | `ingestion` | Future (Phase 2) | A value extracted from a PDF, awaiting human review |
@@ -381,18 +381,26 @@ Append-only, like its run.
 | `message` | text | |
 | `line_items` | jsonb | List of line-item codes |
 
-### 4.12 Report (MVP)
+### 4.12 Report (Implemented)
 
 | Field | Type | Notes |
 |-------|------|-------|
 | `workspace` | FK → Workspace, `CASCADE` | |
 | `title` | varchar(200) | |
-| `notes` | text | User commentary, clearly separated from calculated values |
-| `runs` | M2M → AnalysisRun (`RESTRICT` on run) | Ordered via the join table's `position` |
+| `notes` | text, may be blank | User commentary, clearly separated from calculated values |
+| `runs` | M2M → AnalysisRun through `ReportRun` | Ordered by `ReportRun.position`; at most 50 runs |
 | `created_by` | FK → User, `SET NULL` | |
 
-The MVP renders reports live from stored runs. Exported PDFs or images are generated on
-demand and are not stored.
+`ReportRun (workspace, report, run, position)`: `report` is `CASCADE` and `run` is
+`RESTRICT`, so a run in a report cannot be deleted. `UNIQUE (report, run)` and
+`UNIQUE (report, position)` apply. On PostgreSQL, composite keys tie both the report and the
+run to the row's `workspace`, so a report can only list runs of its own workspace
+(`reports.0002`, using the `(workspace, id)` keys on `Report` and `AnalysisRun`).
+Index: `(workspace, created_at DESC)`.
+
+A report stores no calculated values. It is rendered live from its immutable runs, so it can
+never drift from them, and each run shows `uses_superseded_statement` once its inputs were
+restated. Exported PDFs or images are generated on demand and are not stored.
 
 ### 4.13 AuditEvent (MVP)
 
